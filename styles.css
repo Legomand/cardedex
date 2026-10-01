@@ -14,7 +14,7 @@ button { color: inherit; }
 .ambient { position: fixed; border-radius: 999px; filter: blur(2px); pointer-events: none; z-index: -1; opacity: .55; }
 .ambient-one { width: 480px; height: 480px; right: -240px; top: 120px; background: radial-gradient(circle, rgba(232,83,63,.13), transparent 68%); }
 .ambient-two { width: 550px; height: 550px; left: -320px; top: 720px; background: radial-gradient(circle, rgba(94,123,103,.13), transparent 68%); }
-.site-header { height: 82px; max-width: 1320px; margin: auto; padding: 0 36px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.site-header { position:sticky; z-index:15; top:0; height:82px; max-width:1320px; margin:auto; padding:0 36px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); background:var(--paper); box-shadow:0 8px 24px rgba(25,35,30,.06); }
 .brand { color: var(--ink); text-decoration: none; display:flex; align-items:center; gap:10px; font: 700 23px var(--display); letter-spacing: -.8px; }
 .brand > span:last-child > span { color: var(--red); }
 .brand-ball { position:relative; display:block; width:28px; height:28px; border:2px solid var(--ink); border-radius:50%; overflow:hidden; background:var(--white); }
