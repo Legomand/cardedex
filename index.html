@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Browse every Pokémon and discover its trading cards." />
+    <meta name="theme-color" content="#f4f1e8" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Cardedex" />
+    <title>Cardédex — Pokémon & cards</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="assets/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="assets/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one"></div>
+    <div class="ambient ambient-two"></div>
+
+    <header class="site-header">
+      <a class="brand" href="#pokedex" aria-label="Cardédex home">
+        <span class="brand-ball" aria-hidden="true"><i></i></span>
+        <span>cardé<span>dex</span></span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a class="active" href="#pokedex">Pokédex</a>
+        <a href="#about">About</a>
+      </nav>
+      <div class="header-actions">
+        <button class="round-action" id="langToggle" title="Switch language" aria-label="Switch language">DA</button>
+        <button class="round-action" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">☾</button>
+        <button class="collection-button" id="collectionOpen"><span>My collection</span><b aria-hidden="true">♥</b></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="pokedex">
+        <div class="eyebrow"><span></span> The complete card companion</div>
+        <h1>Every Pokémon.<br /><em>Every card.</em></h1>
+        <p>Explore the full Pokédex, then open any Pokémon to discover its trading cards across every era.</p>
+        <form class="search-shell" id="searchForm" role="search">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" /></svg>
+          <label class="sr-only" for="searchInput">Search Pokémon</label>
+          <input id="searchInput" type="search" autocomplete="off" placeholder="Search by name or Pokédex number…" />
+          <kbd>⌘ K</kbd>
+        </form>
+        <div class="quick-picks" aria-label="Popular searches">
+          <span>Popular</span>
+          <button data-search="Pikachu">Pikachu</button>
+          <button data-search="Charizard">Charizard</button>
+          <button data-search="Mewtwo">Mewtwo</button>
+          <button data-search="Eevee">Eevee</button>
+        </div>
+      </section>
+
+      <section class="catalog" aria-labelledby="catalogTitle">
+        <div class="catalog-heading">
+          <div>
+            <div class="section-kicker">National Pokédex</div>
+            <h2 id="catalogTitle">Choose your Pokémon</h2>
+          </div>
+          <div class="result-count" aria-live="polite"><strong id="resultCount">—</strong><span>Pokémon found</span></div>
+        </div>
+
+        <div class="filter-toolbar">
+          <div class="filters" id="generationFilters" aria-label="Filter by generation">
+            <button class="active" data-gen="all">All generations</button>
+            <button data-gen="1">Gen I</button><button data-gen="2">Gen II</button>
+            <button data-gen="3">Gen III</button><button data-gen="4">Gen IV</button>
+            <button data-gen="5">Gen V</button><button data-gen="6">Gen VI</button>
+            <button data-gen="7">Gen VII</button><button data-gen="8">Gen VIII</button>
+            <button data-gen="9">Gen IX</button>
+          </div>
+          <div class="catalog-dropdowns" aria-label="Filter by card release">
+            <select id="mainSeriesFilter" aria-label="Filter by series"><option value="all">All series</option></select>
+            <select id="mainSetFilter" aria-label="Filter by set"><option value="all">All sets</option></select>
+            <select id="mainRarityFilter" aria-label="Filter by rarity"><option value="all">All rarities</option></select>
+            <select id="mainOrderFilter" class="order-filter" aria-label="Order Pokémon">
+              <option value="pokedex">Order: Pokédex #</option>
+              <option value="cardNumber">Order: card #</option>
+            </select>
+          </div>
+          <div class="artist-explorer">
+            <div class="artist-field">
+              <span aria-hidden="true">✎</span>
+              <label class="sr-only" for="mainArtistInput">Filter Pokémon by card illustrator</label>
+              <input id="mainArtistInput" role="combobox" aria-autocomplete="list" autocomplete="off" placeholder="Search illustrator…" aria-expanded="false" aria-controls="artistSuggestions" />
+              <button id="clearArtist" hidden aria-label="Clear illustrator filter">×</button>
+              <div class="artist-suggestions" id="artistSuggestions" role="listbox" hidden></div>
+            </div>
+          </div>
+        </div>
+        <p class="artist-status" id="artistStatus">Choose an illustrator to see their Pokémon across every generation.</p>
+        <p class="catalog-filter-status" id="catalogFilterStatus" hidden></p>
+        <p class="catalog-filter-status rarity-filter-status" id="rarityFilterStatus" hidden></p>
+
+        <div class="pokemon-grid" id="pokemonGrid" aria-live="polite"></div>
+        <div class="empty-state" id="emptyState" hidden>
+          <div>?</div><h3>No Pokémon found</h3><p>Try another name, number, or generation.</p>
+        </div>
+        <div class="load-wrap"><button class="load-more" id="loadMore" hidden>Load more <span>↓</span></button></div>
+      </section>
+
+      <section class="about" id="about">
+        <span>Built for collectors</span>
+        <h2>From the very first set<br />to the latest release.</h2>
+        <p>Cardédex brings the National Pokédex and decades of Pokémon card artwork into one calm, searchable collection.</p>
+      </section>
+    </main>
+
+    <footer>
+      <a class="brand footer-brand" href="#pokedex"><span class="brand-ball"><i></i></span><span>cardé<span>dex</span></span></a>
+      <p>Data from PokéAPI and TCGdex. Pokémon and Pokémon character names are trademarks of Nintendo.</p>
+    </footer>
+
+    <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+    <aside class="drawer" id="pokemonDrawer" aria-hidden="true" aria-labelledby="drawerTitle">
+      <button class="drawer-close" id="drawerClose" aria-label="Close details">×</button>
+      <div id="drawerContent"></div>
+    </aside>
+
+    <dialog class="card-lightbox" id="cardLightbox">
+      <button class="dialog-close" id="lightboxClose" aria-label="Close card preview">×</button>
+      <div class="card-detail-dialog" id="cardDetailContent"></div>
+    </dialog>
+
+    <dialog class="collection-dialog" id="collectionDialog">
+      <button class="dialog-close" id="collectionClose" aria-label="Close collection">×</button>
+      <div class="collection-content">
+        <span class="section-kicker">Saved on this device</span>
+        <h2>My collection</h2>
+        <p class="collection-intro">Your favorites and card checklist stay private on this computer.</p>
+        <div class="collection-stats" id="collectionStats"></div>
+        <div class="collection-tools">
+          <button id="exportCollection">Export backup</button>
+          <button id="importCollection">Import backup</button>
+          <input type="file" id="importFile" accept="application/json" hidden />
+        </div>
+        <section class="collection-browser" aria-labelledby="collectionCardsTitle">
+          <div class="collection-browser-heading">
+            <div>
+              <span class="section-kicker">Card checklist</span>
+              <h3 id="collectionCardsTitle">Saved cards</h3>
+            </div>
+            <strong id="collectionResultCount">0 cards</strong>
+          </div>
+          <input class="collection-search" id="collectionSearch" type="search" placeholder="Search card, Pokémon, set, artist…" autocomplete="off" />
+          <div class="collection-filters" id="collectionFilters"></div>
+          <div class="collection-card-grid" id="collectionCardGrid"></div>
+        </section>
+        <div class="favorite-heading"><span class="section-kicker">Favorite Pokémon</span></div>
+        <div class="favorite-list" id="favoriteList"></div>
+      </div>
+    </dialog>
+
+    <template id="pokemonCardTemplate">
+      <button class="pokemon-card">
+        <span class="favorite-star" aria-label="Add to favorites" role="button">☆</span>
+        <span class="card-number"></span>
+        <span class="image-stage"><img loading="lazy" alt="" /></span>
+        <span class="card-copy"><strong></strong><span>View cards <i>↗</i></span></span>
+      </button>
+    </template>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "name": "cardedex",
+  "version": "1.0.0",
+  "description": "A complete Pokémon and trading-card browser.",
+  "main": "desktop.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "package:windows": "electron-builder --win portable --x64"
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.cardedex.desktop",
+    "productName": "Cardedex",
+    "asar": true,
+    "files": [
+      "index.html",
+      "styles.css",
+      "app.js",
+      "desktop.js",
+      "manifest.webmanifest",
+      "service-worker.js",
+      "assets/icon.ico",
+      "assets/icon-192.png",
+      "assets/icon-512.png"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable",
+      "icon": "assets/icon.ico",
+      "artifactName": "Cardedex-Windows-x64.exe"
+    }
+  },
+  "allowScripts": {
+    "electron@38.8.6": true,
+    "electron-winstaller@5.4.0": true
+  }
+}
