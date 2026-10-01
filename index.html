@@ -76,13 +76,13 @@
             <button data-gen="9">Gen IX</button>
           </div>
           <div class="catalog-dropdowns" aria-label="Filter by card release">
-            <select id="mainSeriesFilter" aria-label="Filter by series"><option value="all">All series</option></select>
-            <select id="mainSetFilter" aria-label="Filter by set"><option value="all">All sets</option></select>
-            <select id="mainRarityFilter" aria-label="Filter by rarity"><option value="all">All rarities</option></select>
-            <select id="mainOrderFilter" class="order-filter" aria-label="Order Pokémon">
-              <option value="pokedex">Order: Pokédex #</option>
-              <option value="cardNumber">Order: card #</option>
-            </select>
+            <label class="catalog-select"><span>Series</span><select id="mainSeriesFilter"><option value="all">All series</option></select></label>
+            <label class="catalog-select"><span>Set</span><select id="mainSetFilter"><option value="all">All sets</option></select></label>
+            <label class="catalog-select"><span>Rarity</span><select id="mainRarityFilter"><option value="all">All rarities</option></select></label>
+            <label class="catalog-select"><span>Order</span><select id="mainOrderFilter" class="order-filter">
+              <option value="pokedex">Pokédex #</option>
+              <option value="cardNumber">Card #</option>
+            </select></label>
           </div>
           <div class="artist-explorer">
             <div class="artist-field">
