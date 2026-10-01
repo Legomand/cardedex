@@ -35,11 +35,18 @@ nav a.active::after { content:""; position:absolute; width:4px; height:4px; bord
 .hero h1 { margin:25px 0 20px; font:700 clamp(58px, 8vw, 96px)/.91 var(--display); letter-spacing:-5px; }
 .hero h1 em { color:var(--red); font-style:normal; }
 .hero > p { max-width:565px; margin:0 auto 37px; color:var(--muted); font-size:16px; line-height:1.7; }
-.search-shell { max-width:650px; height:64px; margin:auto; display:flex; align-items:center; padding:0 18px 0 21px; background:var(--white); border:1px solid var(--line); border-radius:18px; box-shadow:0 14px 35px rgba(39,48,42,.08); transition:.25s; }
+.search-shell { position:relative; max-width:650px; height:64px; margin:auto; display:flex; align-items:center; padding:0 18px 0 21px; background:var(--white); border:1px solid var(--line); border-radius:18px; box-shadow:0 14px 35px rgba(39,48,42,.08); transition:.25s; }
 .search-shell:focus-within { border-color:rgba(232,83,63,.45); box-shadow:0 15px 40px rgba(39,48,42,.11), 0 0 0 4px rgba(232,83,63,.08); }
 .search-shell svg { width:21px; fill:none; stroke:var(--ink); stroke-width:1.7; }
 .search-shell input { min-width:0; flex:1; border:0; outline:0; background:none; padding:0 15px; color:var(--ink); }
 .search-shell input::placeholder { color:#9b9f9b; }
+.search-suggestions { position:absolute; z-index:18; top:calc(100% + 8px); left:0; right:0; max-height:min(420px,55vh); overflow:auto; padding:7px; border:1px solid var(--line); border-radius:16px; background:var(--white); box-shadow:0 22px 55px rgba(20,28,23,.2); text-align:left; }
+.search-suggestions[hidden] { display:none; }
+.search-suggestions button { display:grid; grid-template-columns:48px 1fr auto; align-items:center; gap:11px; width:100%; min-height:56px; padding:5px 11px 5px 7px; border:0; border-radius:11px; cursor:pointer; color:var(--ink); background:transparent; text-align:left; }
+.search-suggestions button:hover,.search-suggestions button.active { outline:0; background:var(--cream); }
+.search-suggestions img { width:46px; height:46px; object-fit:contain; }
+.search-suggestions strong { font:600 15px var(--display); }
+.search-suggestions small { color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.08em; }
 kbd { padding:5px 8px; border:1px solid var(--line); border-radius:6px; color:#919790; background:#f5f2eb; font:11px var(--body); box-shadow:0 1px 0 var(--line); }
 .quick-picks { margin-top:17px; display:flex; justify-content:center; gap:10px; flex-wrap:wrap; font-size:11px; }
 .quick-picks > span { color:#9b9f9b; padding:5px; }
