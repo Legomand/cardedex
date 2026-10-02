@@ -147,6 +147,8 @@ footer p { max-width:510px; color:var(--muted); font-size:10px; text-align:right
 .card-status button { flex:1; border:1px solid var(--line); border-radius:7px; padding:5px 3px; background:var(--white); cursor:pointer; color:var(--muted); font-size:8px; font-weight:700; }
 .card-status button.active[data-status="owned"] { color:white; background:var(--green); border-color:var(--green); }
 .card-status button.active[data-status="wanted"] { color:white; background:var(--red); border-color:var(--red); }
+.card-status button.active[data-detail-status="owned"] { color:white; background:var(--green); border-color:var(--green); }
+.card-status button.active[data-detail-status="wanted"] { color:white; background:var(--red); border-color:var(--red); }
 .card-quantity { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:7px; color:var(--ink); font-size:10px; }
 .card-quantity button { width:24px; height:22px; padding:0; border:1px solid var(--line); border-radius:7px; cursor:pointer; color:var(--ink); background:var(--white); }
 .card-quantity button:disabled { cursor:default; opacity:.4; }
@@ -176,6 +178,13 @@ footer p { max-width:510px; color:var(--muted); font-size:10px; text-align:right
 .detail-meta div { padding-bottom:11px; border-bottom:1px solid var(--line); }
 .detail-meta span { display:block; color:var(--muted); font-size:9px; text-transform:uppercase; letter-spacing:1px; }
 .detail-meta strong { display:block; margin-top:4px; font-size:12px; }
+.card-detail-collection { margin:0 0 22px; padding:15px; border:1px solid var(--line); border-radius:13px; background:var(--white); }
+.card-detail-collection>.section-kicker { display:block; margin-bottom:9px; }
+.card-detail-collection .card-status { margin-top:0; }
+.card-detail-collection .card-status button { padding:9px 10px; font-size:10px; }
+.card-detail-collection .card-print-variant { font-size:10px; }
+.card-detail-collection .card-print-variant select { max-width:190px; font-size:10px; }
+.card-detail-collection .card-quantity { justify-content:flex-start; font-size:12px; }
 .print-variants { display:flex; gap:6px; flex-wrap:wrap; }
 .print-variants span { padding:6px 9px; border-radius:12px; background:var(--cream); font-size:9px; font-weight:700; }
 .price-list { display:flex; flex-wrap:wrap; gap:7px; margin:16px 0; }
