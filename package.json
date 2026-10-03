@@ -19,6 +19,7 @@
     "files": [
       "index.html",
       "styles.css",
+      "js/**/*",
       "app.js",
       "desktop.js",
       "manifest.webmanifest",

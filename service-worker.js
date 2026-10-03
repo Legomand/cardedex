@@ -1,5 +1,5 @@
-const CACHE_NAME='cardedex-shell-v12';
-const APP_SHELL=['./','./index.html','./styles.css','./app.js','./manifest.webmanifest','./assets/icon-192.png','./assets/icon-512.png'];
+const CACHE_NAME='cardedex-shell-v13';
+const APP_SHELL=['./','./index.html','./styles.css','./js/core.js','./js/catalog.js','./js/cards.js','./js/collection.js','./app.js','./manifest.webmanifest','./assets/icon-192.png','./assets/icon-512.png'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));
