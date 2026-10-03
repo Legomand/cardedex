@@ -1,226 +1,2726 @@
-const POKE_API = 'https://pokeapi.co/api/v2';
-const TCG_API = 'https://api.tcgdex.net/v2/en';
-const ART = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork';
+const POKE_API = "https://pokeapi.co/api/v2";
+const TCG_API = "https://api.tcgdex.net/v2/en";
+const ART =
+  "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork";
 const PAGE_SIZE = 48;
-const POCKET_SERIES_ID = 'tcgp';
+const POCKET_SERIES_ID = "tcgp";
 
-const generationRanges = { 1:[1,151], 2:[152,251], 3:[252,386], 4:[387,493], 5:[494,649], 6:[650,721], 7:[722,809], 8:[810,905], 9:[906,9999] };
-const typeColors = { normal:'#8f968b', fire:'#e76545', water:'#4b83c6', electric:'#d7ad32', grass:'#5d9a68', ice:'#63aeb7', fighting:'#bd5b4d', poison:'#8c5f9e', ground:'#bf8b54', flying:'#7895bb', psychic:'#d56981', bug:'#829447', rock:'#a08b61', ghost:'#6c658f', dragon:'#6871ae', dark:'#5b5755', steel:'#778c91', fairy:'#c87fa2' };
-const tints = ['#e8e4d7','#dfeadf','#e8dfd7','#dbe7e8','#e8e2d2','#e2dfe9'];
+const generationRanges = {
+  1: [1, 151],
+  2: [152, 251],
+  3: [252, 386],
+  4: [387, 493],
+  5: [494, 649],
+  6: [650, 721],
+  7: [722, 809],
+  8: [810, 905],
+  9: [906, 9999],
+};
+const typeColors = {
+  normal: "#8f968b",
+  fire: "#e76545",
+  water: "#4b83c6",
+  electric: "#d7ad32",
+  grass: "#5d9a68",
+  ice: "#63aeb7",
+  fighting: "#bd5b4d",
+  poison: "#8c5f9e",
+  ground: "#bf8b54",
+  flying: "#7895bb",
+  psychic: "#d56981",
+  bug: "#829447",
+  rock: "#a08b61",
+  ghost: "#6c658f",
+  dragon: "#6871ae",
+  dark: "#5b5755",
+  steel: "#778c91",
+  fairy: "#c87fa2",
+};
+const tints = [
+  "#e8e4d7",
+  "#dfeadf",
+  "#e8dfd7",
+  "#dbe7e8",
+  "#e8e2d2",
+  "#e2dfe9",
+];
 const tcgNameOverrides = {
-  'farfetchd': "Farfetch'd", 'sirfetchd': "Sirfetch'd", 'mr-mime': 'Mr. Mime',
-  'mime-jr': 'Mime Jr.', 'type-null': 'Type: Null', 'ho-oh': 'Ho-Oh',
-  'porygon-z': 'Porygon-Z', 'jangmo-o': 'Jangmo-o', 'hakamo-o': 'Hakamo-o',
-  'kommo-o': 'Kommo-o', 'wo-chien': 'Wo-Chien', 'chien-pao': 'Chien-Pao',
-  'ting-lu': 'Ting-Lu', 'chi-yu': 'Chi-Yu', 'nidoran-f': 'Nidoran♀',
-  'nidoran-m': 'Nidoran♂', 'flabebe': 'Flabébé'
+  "farfetchd": "Farfetch'd",
+  "sirfetchd": "Sirfetch'd",
+  "mr-mime": "Mr. Mime",
+  "mime-jr": "Mime Jr.",
+  "type-null": "Type: Null",
+  "ho-oh": "Ho-Oh",
+  "porygon-z": "Porygon-Z",
+  "jangmo-o": "Jangmo-o",
+  "hakamo-o": "Hakamo-o",
+  "kommo-o": "Kommo-o",
+  "wo-chien": "Wo-Chien",
+  "chien-pao": "Chien-Pao",
+  "ting-lu": "Ting-Lu",
+  "chi-yu": "Chi-Yu",
+  "nidoran-f": "Nidoran♀",
+  "nidoran-m": "Nidoran♂",
+  "flabebe": "Flabébé",
 };
 const cardImageOverrides = {
-  'smp-SM228':'https://assets.pokemon.com/assets/cms2/img/cards/web/SMP/SMP_EN_SM228.png'
+  "smp-SM228":
+    "https://assets.pokemon.com/assets/cms2/img/cards/web/SMP/SMP_EN_SM228.png",
 };
 
-const saved = JSON.parse(localStorage.getItem('cardedex-user') || '{}');
+const saved = JSON.parse(localStorage.getItem("cardedex-user") || "{}");
 const state = {
-  pokemon:[], pokemonAliases:[], filtered:[], visible:PAGE_SIZE, generation:'all', query:'', current:null,
-  illustrators:[], artist:null, artistPokemonIds:null, artistCardIds:null, artistCardCounts:new Map(), artistRequest:0, artistLoading:false,
-  cardSeries:[], cardSets:[], catalogSeries:'all', catalogSet:'all', mainOrder:'pokedex', catalogPokemonIds:null, catalogCardIds:null, catalogCardCounts:new Map(), catalogCardOrder:new Map(), catalogRequest:0,
-  cardRarities:[], catalogRarity:'all', rarityPokemonIds:null, rarityCardIds:null, rarityCardCounts:new Map(), rarityRequest:0,
-  cards:[], sort:'archive', advancedLoaded:false, cardFilters:{variant:'all',status:'all',series:'all',set:'all',rarity:'all',illustrator:'all'},
-  collectionCards:[], collectionRequest:0, collectionFilters:{query:'',status:'all',series:'all',set:'all',rarity:'all',variant:'all',illustrator:'all',sort:'name'},
-  favorites:new Set(saved.favorites || []), cardStates:saved.cardStates || {}, cardCounts:saved.cardCounts || {}, cardPrintVariants:saved.cardPrintVariants || {},
-  settings:{dark:false,language:'en',shiny:false,hidePocket:false,...saved.settings}
+  pokemon: [],
+  pokemonAliases: [],
+  filtered: [],
+  visible: PAGE_SIZE,
+  generation: "all",
+  query: "",
+  current: null,
+  illustrators: [],
+  artist: null,
+  artistPokemonIds: null,
+  artistCardIds: null,
+  artistCardCounts: new Map(),
+  artistRequest: 0,
+  artistLoading: false,
+  cardSeries: [],
+  cardSets: [],
+  catalogSeries: "all",
+  catalogSet: "all",
+  mainOrder: "pokedex",
+  catalogPokemonIds: null,
+  catalogCardIds: null,
+  catalogCardCounts: new Map(),
+  catalogCardOrder: new Map(),
+  catalogRequest: 0,
+  cardRarities: [],
+  catalogRarity: "all",
+  rarityPokemonIds: null,
+  rarityCardIds: null,
+  rarityCardCounts: new Map(),
+  rarityRequest: 0,
+  cards: [],
+  sort: "archive",
+  advancedLoaded: false,
+  cardFilters: {
+    variant: "all",
+    status: "all",
+    series: "all",
+    set: "all",
+    rarity: "all",
+    illustrator: "all",
+  },
+  collectionCards: [],
+  collectionRequest: 0,
+  collectionFilters: {
+    query: "",
+    status: "all",
+    series: "all",
+    set: "all",
+    rarity: "all",
+    variant: "all",
+    illustrator: "all",
+    sort: "name",
+  },
+  favorites: new Set(saved.favorites || []),
+  cardStates: saved.cardStates || {},
+  cardCounts: saved.cardCounts || {},
+  cardPrintVariants: saved.cardPrintVariants || {},
+  settings: {
+    dark: false,
+    language: "en",
+    shiny: false,
+    hidePocket: false,
+    ...saved.settings,
+  },
 };
-const grid = document.querySelector('#pokemonGrid');
-const template = document.querySelector('#pokemonCardTemplate');
-const resultCount = document.querySelector('#resultCount');
-const loadMore = document.querySelector('#loadMore');
-const emptyState = document.querySelector('#emptyState');
-const drawer = document.querySelector('#pokemonDrawer');
-const backdrop = document.querySelector('#drawerBackdrop');
-const drawerContent = document.querySelector('#drawerContent');
-const searchInput = document.querySelector('#searchInput');
-const searchSuggestions = document.querySelector('#searchSuggestions');
-const mainArtistInput = document.querySelector('#mainArtistInput');
-const artistStatus = document.querySelector('#artistStatus');
-const clearArtist = document.querySelector('#clearArtist');
-const artistSuggestions = document.querySelector('#artistSuggestions');
-const mainSeriesFilter = document.querySelector('#mainSeriesFilter');
-const mainSetFilter = document.querySelector('#mainSetFilter');
-const mainRarityFilter = document.querySelector('#mainRarityFilter');
-const mainOrderFilter = document.querySelector('#mainOrderFilter');
-const hidePocketToggle = document.querySelector('#hidePocketToggle');
-const catalogFilterStatus = document.querySelector('#catalogFilterStatus');
-const rarityFilterStatus = document.querySelector('#rarityFilterStatus');
-const cardDialog = document.querySelector('#cardLightbox');
-const collectionDialog = document.querySelector('#collectionDialog');
-const collectionSearch = document.querySelector('#collectionSearch');
-const collectionFilters = document.querySelector('#collectionFilters');
-const collectionCardGrid = document.querySelector('#collectionCardGrid');
+const grid = document.querySelector("#pokemonGrid");
+const template = document.querySelector("#pokemonCardTemplate");
+const resultCount = document.querySelector("#resultCount");
+const loadMore = document.querySelector("#loadMore");
+const emptyState = document.querySelector("#emptyState");
+const drawer = document.querySelector("#pokemonDrawer");
+const backdrop = document.querySelector("#drawerBackdrop");
+const drawerContent = document.querySelector("#drawerContent");
+const searchInput = document.querySelector("#searchInput");
+const searchSuggestions = document.querySelector("#searchSuggestions");
+const mainArtistInput = document.querySelector("#mainArtistInput");
+const artistStatus = document.querySelector("#artistStatus");
+const clearArtist = document.querySelector("#clearArtist");
+const artistSuggestions = document.querySelector("#artistSuggestions");
+const mainSeriesFilter = document.querySelector("#mainSeriesFilter");
+const mainSetFilter = document.querySelector("#mainSetFilter");
+const mainRarityFilter = document.querySelector("#mainRarityFilter");
+const mainOrderFilter = document.querySelector("#mainOrderFilter");
+const hidePocketToggle = document.querySelector("#hidePocketToggle");
+const catalogFilterStatus = document.querySelector("#catalogFilterStatus");
+const rarityFilterStatus = document.querySelector("#rarityFilterStatus");
+const cardDialog = document.querySelector("#cardLightbox");
+const collectionDialog = document.querySelector("#collectionDialog");
+const collectionSearch = document.querySelector("#collectionSearch");
+const collectionFilters = document.querySelector("#collectionFilters");
+const collectionCardGrid = document.querySelector("#collectionCardGrid");
 
 const words = {
-  en:{
-    about:'About',completeCompanion:'The complete card companion',heroTitle:'Every Pokémon.<br><em>Every card.</em>',heroDescription:'Explore the full Pokédex, then open any Pokémon to discover its trading cards across every era.',popular:'Popular',nationalPokedex:'National Pokédex',choosePokemon:'Choose your Pokémon',pokemonFound:'Pokémon found',allGenerations:'All generations',series:'Series',set:'Set',rarity:'Rarity',order:'Order',pokedexNumber:'Pokédex #',cardNumber:'Card #',artistPrompt:'Choose an illustrator to see their Pokémon across every generation.',noPokemon:'No Pokémon found',tryAnother:'Try another name, number, or generation.',loadMore:'Load more',builtForCollectors:'Built for collectors',aboutTitle:'From the very first set<br>to the latest release.',aboutDescription:'Cardédex brings the National Pokédex and decades of Pokémon card artwork into one calm, searchable collection.',footer:'Data from PokéAPI and TCGdex. Pokémon and Pokémon character names are trademarks of Nintendo.',savedDevice:'Saved on this device',myCollection:'My collection',collectionPrivacy:'Your favorites and card checklist stay private on this device.',exportBackup:'Export backup',importBackup:'Import backup',cardChecklist:'Card checklist',savedCards:'Saved cards',favoritePokemon:'Favorite Pokémon',viewCards:'View cards',searchPokemon:'Search by name or Pokédex number…',searchCollection:'Search card, Pokémon, set, artist…',searchIllustrator:'Search card illustrator…',hidePocket:'Hide TCG Pocket',cards:'cards found',cardFound:'card found',owned:'Owned',wanted:'Wanted',collectionStatus:'Collection status',missing:'Missing',all:'All',favorite:'Favorite',shiny:'Shiny artwork',archive:'Trading card archive',advanced:'Load rarity & artist filters',offline:'Cached for offline use',allSeries:'All series',allSets:'All sets',allRarities:'All rarities',loadingSets:'Loading sets…',orderCard:'Order: card #',chooseSet:'Order: card # (choose set)',height:'Height',weight:'Weight',abilities:'Abilities',stats:'Stat comparison · max 255',evolution:'Evolution',cardsFeaturing:'Cards featuring {name}',searchingSets:'Searching every set…',archiveOrder:'Archive order',reverseOrder:'Reverse order',nameOrder:'Name A–Z',lookingArchive:'Looking through the card archive…',loadingPokemon:'Loading Pokémon details…',openingArchive:'Opening the card archive…',allVariants:'All variants',allStatuses:'All statuses',allArtists:'All artists',loadingSeries:'Loading series…',loadingSetNames:'Loading set names…',loadArtistNames:'Load artist names…',noMatchingCards:'No cards match these filters.',setLoading:'Set name loading…',card:'Card',loadingDetails:'Loading card details…',variant:'variant',unknown:'Unknown',unknownSet:'Unknown set',otherSeries:'Other series',illustrator:'Illustrator',stage:'Stage',hpType:'HP / Type',printVariants:'Available print variants',standard:'Standard',print:'Print',loadingPrint:'Loading print options…',ownedCopies:'Owned copies',removeCopy:'Remove one copy',addCopy:'Add one copy',loading:'Loading…',unique:'unique',priced:'priced',total:'total',noFavorites:'No favorite Pokémon yet.',allStatusesCollection:'All statuses',sortCards:'Sort cards',pokedexSort:'Pokédex number ↑',setNumberSort:'Card number (set) ↑',cardmarketSort:'Cardmarket value ↓',tcgplayerSort:'TCGplayer value ↓',markCards:'Mark cards as owned or wanted and they will appear here.',noSavedMatch:'No saved cards match these filters.',loadingSaved:'Loading your saved cards…',invalidBackup:'This is not a valid Cardédex backup.',unavailablePokedex:'The Pokédex is unavailable and no offline copy exists yet.',connectOffline:'Connect once to prepare offline mode.',unavailableCards:'The card archive is unavailable.',viewedOffline:'Previously viewed cards remain available offline.',closeDetails:'Close details',closePreview:'Close card preview',closeCollection:'Close collection',switchLanguage:'Switch language',toggleDark:'Toggle dark mode',filterGeneration:'Filter by generation',filterRelease:'Filter by card release',filterIllustrator:'Filter Pokémon by card illustrator',clearIllustrator:'Clear illustrator filter',matchingCards:'Matching cards',illustratorsOffline:'Illustrators unavailable offline',loadingArtists:'Loading artists…',noArtists:'No matching artists',chooseSuggestion:'Choose an illustrator from the suggestions.'
+  en: {
+    about: "About",
+    completeCompanion: "The complete card companion",
+    heroTitle: "Every Pokémon.<br><em>Every card.</em>",
+    heroDescription:
+      "Explore the full Pokédex, then open any Pokémon to discover its trading cards across every era.",
+    popular: "Popular",
+    nationalPokedex: "National Pokédex",
+    choosePokemon: "Choose your Pokémon",
+    pokemonFound: "Pokémon found",
+    allGenerations: "All generations",
+    series: "Series",
+    set: "Set",
+    rarity: "Rarity",
+    order: "Order",
+    pokedexNumber: "Pokédex #",
+    cardNumber: "Card #",
+    artistPrompt:
+      "Choose an illustrator to see their Pokémon across every generation.",
+    noPokemon: "No Pokémon found",
+    tryAnother: "Try another name, number, or generation.",
+    loadMore: "Load more",
+    builtForCollectors: "Built for collectors",
+    aboutTitle: "From the very first set<br>to the latest release.",
+    aboutDescription:
+      "Cardédex brings the National Pokédex and decades of Pokémon card artwork into one calm, searchable collection.",
+    footer:
+      "Data from PokéAPI and TCGdex. Pokémon and Pokémon character names are trademarks of Nintendo.",
+    savedDevice: "Saved on this device",
+    myCollection: "My collection",
+    collectionPrivacy:
+      "Your favorites and card checklist stay private on this device.",
+    exportBackup: "Export backup",
+    importBackup: "Import backup",
+    cardChecklist: "Card checklist",
+    savedCards: "Saved cards",
+    favoritePokemon: "Favorite Pokémon",
+    viewCards: "View cards",
+    searchPokemon: "Search by name or Pokédex number…",
+    searchCollection: "Search card, Pokémon, set, artist…",
+    searchIllustrator: "Search card illustrator…",
+    hidePocket: "Hide TCG Pocket",
+    cards: "cards found",
+    cardFound: "card found",
+    owned: "Owned",
+    wanted: "Wanted",
+    collectionStatus: "Collection status",
+    missing: "Missing",
+    all: "All",
+    favorite: "Favorite",
+    shiny: "Shiny artwork",
+    archive: "Trading card archive",
+    advanced: "Load rarity & artist filters",
+    offline: "Cached for offline use",
+    allSeries: "All series",
+    allSets: "All sets",
+    allRarities: "All rarities",
+    loadingSets: "Loading sets…",
+    orderCard: "Order: card #",
+    chooseSet: "Order: card # (choose set)",
+    height: "Height",
+    weight: "Weight",
+    abilities: "Abilities",
+    stats: "Stat comparison · max 255",
+    evolution: "Evolution",
+    cardsFeaturing: "Cards featuring {name}",
+    searchingSets: "Searching every set…",
+    archiveOrder: "Archive order",
+    reverseOrder: "Reverse order",
+    nameOrder: "Name A–Z",
+    lookingArchive: "Looking through the card archive…",
+    loadingPokemon: "Loading Pokémon details…",
+    openingArchive: "Opening the card archive…",
+    allVariants: "All variants",
+    allStatuses: "All statuses",
+    allArtists: "All artists",
+    loadingSeries: "Loading series…",
+    loadingSetNames: "Loading set names…",
+    loadArtistNames: "Load artist names…",
+    noMatchingCards: "No cards match these filters.",
+    setLoading: "Set name loading…",
+    card: "Card",
+    loadingDetails: "Loading card details…",
+    variant: "variant",
+    unknown: "Unknown",
+    unknownSet: "Unknown set",
+    otherSeries: "Other series",
+    illustrator: "Illustrator",
+    stage: "Stage",
+    hpType: "HP / Type",
+    printVariants: "Available print variants",
+    standard: "Standard",
+    print: "Print",
+    loadingPrint: "Loading print options…",
+    ownedCopies: "Owned copies",
+    removeCopy: "Remove one copy",
+    addCopy: "Add one copy",
+    loading: "Loading…",
+    unique: "unique",
+    priced: "priced",
+    total: "total",
+    noFavorites: "No favorite Pokémon yet.",
+    allStatusesCollection: "All statuses",
+    sortCards: "Sort cards",
+    pokedexSort: "Pokédex number ↑",
+    setNumberSort: "Card number (set) ↑",
+    cardmarketSort: "Cardmarket value ↓",
+    tcgplayerSort: "TCGplayer value ↓",
+    markCards: "Mark cards as owned or wanted and they will appear here.",
+    noSavedMatch: "No saved cards match these filters.",
+    loadingSaved: "Loading your saved cards…",
+    invalidBackup: "This is not a valid Cardédex backup.",
+    unavailablePokedex:
+      "The Pokédex is unavailable and no offline copy exists yet.",
+    connectOffline: "Connect once to prepare offline mode.",
+    unavailableCards: "The card archive is unavailable.",
+    viewedOffline: "Previously viewed cards remain available offline.",
+    closeDetails: "Close details",
+    closePreview: "Close card preview",
+    closeCollection: "Close collection",
+    switchLanguage: "Switch language",
+    toggleDark: "Toggle dark mode",
+    filterGeneration: "Filter by generation",
+    filterRelease: "Filter by card release",
+    filterIllustrator: "Filter Pokémon by card illustrator",
+    clearIllustrator: "Clear illustrator filter",
+    matchingCards: "Matching cards",
+    illustratorsOffline: "Illustrators unavailable offline",
+    loadingArtists: "Loading artists…",
+    noArtists: "No matching artists",
+    chooseSuggestion: "Choose an illustrator from the suggestions.",
   },
-  da:{
-    about:'Om',completeCompanion:'Den komplette kortmakker',heroTitle:'Alle Pokémon.<br><em>Alle kort.</em>',heroDescription:'Udforsk hele Pokédexet, og åbn derefter en Pokémon for at se dens samlekort fra alle tidsperioder.',popular:'Populære',nationalPokedex:'Nationalt Pokédex',choosePokemon:'Vælg din Pokémon',pokemonFound:'Pokémon fundet',allGenerations:'Alle generationer',series:'Serie',set:'Sæt',rarity:'Sjældenhed',order:'Sortering',pokedexNumber:'Pokédex-nr.',cardNumber:'Kortnr.',artistPrompt:'Vælg en illustrator for at se deres Pokémon på tværs af alle generationer.',noPokemon:'Ingen Pokémon fundet',tryAnother:'Prøv et andet navn, nummer eller en anden generation.',loadMore:'Vis flere',builtForCollectors:'Skabt til samlere',aboutTitle:'Fra det allerførste sæt<br>til den nyeste udgivelse.',aboutDescription:'Cardédex samler det nationale Pokédex og årtiers Pokémon-kortkunst i én rolig og søgbar samling.',footer:'Data fra PokéAPI og TCGdex. Pokémon og navnene på Pokémon-figurer er varemærker tilhørende Nintendo.',savedDevice:'Gemt på denne enhed',myCollection:'Min samling',collectionPrivacy:'Dine favoritter og din kortoversigt forbliver private på denne enhed.',exportBackup:'Eksportér sikkerhedskopi',importBackup:'Importér sikkerhedskopi',cardChecklist:'Kortoversigt',savedCards:'Gemte kort',favoritePokemon:'Favorit-Pokémon',viewCards:'Se kort',searchPokemon:'Søg efter navn eller Pokédex-nummer…',searchCollection:'Søg efter kort, Pokémon, sæt eller illustrator…',searchIllustrator:'Søg efter kortillustrator…',hidePocket:'Skjul TCG Pocket',cards:'kort fundet',cardFound:'kort fundet',owned:'Ejet',wanted:'Ønsket',collectionStatus:'Samlingsstatus',missing:'Mangler',all:'Alle',favorite:'Favorit',shiny:'Shiny-billede',archive:'Samlekortarkiv',advanced:'Indlæs sjældenhed og illustrator',offline:'Gemt til offline brug',allSeries:'Alle serier',allSets:'Alle sæt',allRarities:'Alle sjældenheder',loadingSets:'Indlæser sæt…',orderCard:'Sortér efter kortnr.',chooseSet:'Kortnr. (vælg et sæt)',height:'Højde',weight:'Vægt',abilities:'Evner',stats:'Sammenligning af egenskaber · maks. 255',evolution:'Udvikling',cardsFeaturing:'Kort med {name}',searchingSets:'Søger i alle sæt…',archiveOrder:'Arkivrækkefølge',reverseOrder:'Omvendt rækkefølge',nameOrder:'Navn A–Å',lookingArchive:'Søger i kortarkivet…',loadingPokemon:'Indlæser Pokémon-oplysninger…',openingArchive:'Åbner kortarkivet…',allVariants:'Alle varianter',allStatuses:'Alle statusser',allArtists:'Alle illustratorer',loadingSeries:'Indlæser serier…',loadingSetNames:'Indlæser sætnavne…',loadArtistNames:'Indlæs illustratornavne…',noMatchingCards:'Ingen kort matcher disse filtre.',setLoading:'Indlæser sætnavn…',card:'Kort',loadingDetails:'Indlæser kortoplysninger…',variant:'variant',unknown:'Ukendt',unknownSet:'Ukendt sæt',otherSeries:'Anden serie',illustrator:'Illustrator',stage:'Trin',hpType:'HP / Type',printVariants:'Tilgængelige trykvarianter',standard:'Standard',print:'Tryk',loadingPrint:'Indlæser trykmuligheder…',ownedCopies:'Ejede eksemplarer',removeCopy:'Fjern ét eksemplar',addCopy:'Tilføj ét eksemplar',loading:'Indlæser…',unique:'unikke',priced:'med pris',total:'i alt',noFavorites:'Ingen favorit-Pokémon endnu.',allStatusesCollection:'Alle statusser',sortCards:'Sortér kort',pokedexSort:'Pokédex-nummer ↑',setNumberSort:'Kortnummer (sæt) ↑',cardmarketSort:'Cardmarket-værdi ↓',tcgplayerSort:'TCGplayer-værdi ↓',markCards:'Markér kort som ejede eller ønskede, så vises de her.',noSavedMatch:'Ingen gemte kort matcher disse filtre.',loadingSaved:'Indlæser dine gemte kort…',invalidBackup:'Dette er ikke en gyldig Cardédex-sikkerhedskopi.',unavailablePokedex:'Pokédexet er ikke tilgængeligt, og der findes endnu ingen offlinekopi.',connectOffline:'Opret forbindelse én gang for at klargøre offline-tilstand.',unavailableCards:'Kortarkivet er ikke tilgængeligt.',viewedOffline:'Tidligere viste kort er stadig tilgængelige offline.',closeDetails:'Luk oplysninger',closePreview:'Luk kortvisning',closeCollection:'Luk samling',switchLanguage:'Skift sprog',toggleDark:'Slå mørk tilstand til eller fra',filterGeneration:'Filtrér efter generation',filterRelease:'Filtrér efter kortudgivelse',filterIllustrator:'Filtrér Pokémon efter kortillustrator',clearIllustrator:'Ryd illustratorfilter',matchingCards:'Matchende kort',illustratorsOffline:'Illustratorer er ikke tilgængelige offline',loadingArtists:'Indlæser illustratorer…',noArtists:'Ingen matchende illustratorer',chooseSuggestion:'Vælg en illustrator fra forslagene.'
-  }
+  da: {
+    about: "Om",
+    completeCompanion: "Den komplette kortmakker",
+    heroTitle: "Alle Pokémon.<br><em>Alle kort.</em>",
+    heroDescription:
+      "Udforsk hele Pokédexet, og åbn derefter en Pokémon for at se dens samlekort fra alle tidsperioder.",
+    popular: "Populære",
+    nationalPokedex: "Nationalt Pokédex",
+    choosePokemon: "Vælg din Pokémon",
+    pokemonFound: "Pokémon fundet",
+    allGenerations: "Alle generationer",
+    series: "Serie",
+    set: "Sæt",
+    rarity: "Sjældenhed",
+    order: "Sortering",
+    pokedexNumber: "Pokédex-nr.",
+    cardNumber: "Kortnr.",
+    artistPrompt:
+      "Vælg en illustrator for at se deres Pokémon på tværs af alle generationer.",
+    noPokemon: "Ingen Pokémon fundet",
+    tryAnother: "Prøv et andet navn, nummer eller en anden generation.",
+    loadMore: "Vis flere",
+    builtForCollectors: "Skabt til samlere",
+    aboutTitle: "Fra det allerførste sæt<br>til den nyeste udgivelse.",
+    aboutDescription:
+      "Cardédex samler det nationale Pokédex og årtiers Pokémon-kortkunst i én rolig og søgbar samling.",
+    footer:
+      "Data fra PokéAPI og TCGdex. Pokémon og navnene på Pokémon-figurer er varemærker tilhørende Nintendo.",
+    savedDevice: "Gemt på denne enhed",
+    myCollection: "Min samling",
+    collectionPrivacy:
+      "Dine favoritter og din kortoversigt forbliver private på denne enhed.",
+    exportBackup: "Eksportér sikkerhedskopi",
+    importBackup: "Importér sikkerhedskopi",
+    cardChecklist: "Kortoversigt",
+    savedCards: "Gemte kort",
+    favoritePokemon: "Favorit-Pokémon",
+    viewCards: "Se kort",
+    searchPokemon: "Søg efter navn eller Pokédex-nummer…",
+    searchCollection: "Søg efter kort, Pokémon, sæt eller illustrator…",
+    searchIllustrator: "Søg efter kortillustrator…",
+    hidePocket: "Skjul TCG Pocket",
+    cards: "kort fundet",
+    cardFound: "kort fundet",
+    owned: "Ejet",
+    wanted: "Ønsket",
+    collectionStatus: "Samlingsstatus",
+    missing: "Mangler",
+    all: "Alle",
+    favorite: "Favorit",
+    shiny: "Shiny-billede",
+    archive: "Samlekortarkiv",
+    advanced: "Indlæs sjældenhed og illustrator",
+    offline: "Gemt til offline brug",
+    allSeries: "Alle serier",
+    allSets: "Alle sæt",
+    allRarities: "Alle sjældenheder",
+    loadingSets: "Indlæser sæt…",
+    orderCard: "Sortér efter kortnr.",
+    chooseSet: "Kortnr. (vælg et sæt)",
+    height: "Højde",
+    weight: "Vægt",
+    abilities: "Evner",
+    stats: "Sammenligning af egenskaber · maks. 255",
+    evolution: "Udvikling",
+    cardsFeaturing: "Kort med {name}",
+    searchingSets: "Søger i alle sæt…",
+    archiveOrder: "Arkivrækkefølge",
+    reverseOrder: "Omvendt rækkefølge",
+    nameOrder: "Navn A–Å",
+    lookingArchive: "Søger i kortarkivet…",
+    loadingPokemon: "Indlæser Pokémon-oplysninger…",
+    openingArchive: "Åbner kortarkivet…",
+    allVariants: "Alle varianter",
+    allStatuses: "Alle statusser",
+    allArtists: "Alle illustratorer",
+    loadingSeries: "Indlæser serier…",
+    loadingSetNames: "Indlæser sætnavne…",
+    loadArtistNames: "Indlæs illustratornavne…",
+    noMatchingCards: "Ingen kort matcher disse filtre.",
+    setLoading: "Indlæser sætnavn…",
+    card: "Kort",
+    loadingDetails: "Indlæser kortoplysninger…",
+    variant: "variant",
+    unknown: "Ukendt",
+    unknownSet: "Ukendt sæt",
+    otherSeries: "Anden serie",
+    illustrator: "Illustrator",
+    stage: "Trin",
+    hpType: "HP / Type",
+    printVariants: "Tilgængelige trykvarianter",
+    standard: "Standard",
+    print: "Tryk",
+    loadingPrint: "Indlæser trykmuligheder…",
+    ownedCopies: "Ejede eksemplarer",
+    removeCopy: "Fjern ét eksemplar",
+    addCopy: "Tilføj ét eksemplar",
+    loading: "Indlæser…",
+    unique: "unikke",
+    priced: "med pris",
+    total: "i alt",
+    noFavorites: "Ingen favorit-Pokémon endnu.",
+    allStatusesCollection: "Alle statusser",
+    sortCards: "Sortér kort",
+    pokedexSort: "Pokédex-nummer ↑",
+    setNumberSort: "Kortnummer (sæt) ↑",
+    cardmarketSort: "Cardmarket-værdi ↓",
+    tcgplayerSort: "TCGplayer-værdi ↓",
+    markCards: "Markér kort som ejede eller ønskede, så vises de her.",
+    noSavedMatch: "Ingen gemte kort matcher disse filtre.",
+    loadingSaved: "Indlæser dine gemte kort…",
+    invalidBackup: "Dette er ikke en gyldig Cardédex-sikkerhedskopi.",
+    unavailablePokedex:
+      "Pokédexet er ikke tilgængeligt, og der findes endnu ingen offlinekopi.",
+    connectOffline:
+      "Opret forbindelse én gang for at klargøre offline-tilstand.",
+    unavailableCards: "Kortarkivet er ikke tilgængeligt.",
+    viewedOffline: "Tidligere viste kort er stadig tilgængelige offline.",
+    closeDetails: "Luk oplysninger",
+    closePreview: "Luk kortvisning",
+    closeCollection: "Luk samling",
+    switchLanguage: "Skift sprog",
+    toggleDark: "Slå mørk tilstand til eller fra",
+    filterGeneration: "Filtrér efter generation",
+    filterRelease: "Filtrér efter kortudgivelse",
+    filterIllustrator: "Filtrér Pokémon efter kortillustrator",
+    clearIllustrator: "Ryd illustratorfilter",
+    matchingCards: "Matchende kort",
+    illustratorsOffline: "Illustratorer er ikke tilgængelige offline",
+    loadingArtists: "Indlæser illustratorer…",
+    noArtists: "Ingen matchende illustratorer",
+    chooseSuggestion: "Vælg en illustrator fra forslagene.",
+  },
 };
-const t = (key,values={}) => Object.entries(values).reduce((text,[name,value])=>text.replaceAll(`{${name}}`,value),words[state.settings.language][key]||words.en[key]||key);
-function titleCase(value) { return value.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' '); }
-function pokemonId(url) { return Number(url.match(/\/(\d+)\/?$/)?.[1]); }
-function formatId(id) { return `#${String(id).padStart(4,'0')}`; }
-function tintFor(id) { return tints[id % tints.length]; }
-function normalizeCardName(value) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/♀/g,' female ').replace(/♂/g,' male ').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
-function generationFor(id) { return Number(Object.entries(generationRanges).find(([,range])=>id>=range[0]&&id<=range[1])?.[0]); }
-function saveUser() { localStorage.setItem('cardedex-user', JSON.stringify({favorites:[...state.favorites],cardStates:state.cardStates,cardCounts:state.cardCounts,cardPrintVariants:state.cardPrintVariants,settings:state.settings})); }
-function escapeHtml(value='') { const div=document.createElement('div'); div.textContent=String(value); return div.innerHTML; }
-function cleanIllustratorName(value){if(typeof value!=='string')return null;const name=value.trim().replace(/\s+/g,' ');if(name.length<2||name.length>80)return null;if(name.includes('"')&&name!=='"Big Mama" Tagawa')return null;return name;}
-function artistSortKey(name){return name.replace(/^[^\p{L}]+/u,'').toLowerCase();}
-function compareArtists(a,b){const aKey=artistSortKey(a);const bKey=artistSortKey(b);const aLetter=/^\p{L}/u.test(aKey);const bLetter=/^\p{L}/u.test(bKey);return Number(bLetter)-Number(aLetter)||aKey.localeCompare(bKey,undefined,{numeric:true,sensitivity:'base'});}
+const t = (key, values = {}) =>
+  Object.entries(values).reduce(
+    (text, [name, value]) => text.replaceAll(`{${name}}`, value),
+    words[state.settings.language][key] || words.en[key] || key,
+  );
+function titleCase(value) {
+  return value.split("-").map((part) =>
+    part.charAt(0).toUpperCase() + part.slice(1)
+  ).join(" ");
+}
+function pokemonId(url) {
+  return Number(url.match(/\/(\d+)\/?$/)?.[1]);
+}
+function formatId(id) {
+  return `#${String(id).padStart(4, "0")}`;
+}
+function tintFor(id) {
+  return tints[id % tints.length];
+}
+function normalizeCardName(value) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(
+    /♀/g,
+    " female ",
+  ).replace(/♂/g, " male ").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+function generationFor(id) {
+  return Number(
+    Object.entries(generationRanges).find(([, range]) =>
+      id >= range[0] && id <= range[1]
+    )?.[0],
+  );
+}
+function saveUser() {
+  localStorage.setItem(
+    "cardedex-user",
+    JSON.stringify({
+      favorites: [...state.favorites],
+      cardStates: state.cardStates,
+      cardCounts: state.cardCounts,
+      cardPrintVariants: state.cardPrintVariants,
+      settings: state.settings,
+    }),
+  );
+}
+function escapeHtml(value = "") {
+  const div = document.createElement("div");
+  div.textContent = String(value);
+  return div.innerHTML;
+}
+function cleanIllustratorName(value) {
+  if (typeof value !== "string") return null;
+  const name = value.trim().replace(/\s+/g, " ");
+  if (name.length < 2 || name.length > 80) return null;
+  if (name.includes('"') && name !== '"Big Mama" Tagawa') return null;
+  return name;
+}
+function artistSortKey(name) {
+  return name.replace(/^[^\p{L}]+/u, "").toLowerCase();
+}
+function compareArtists(a, b) {
+  const aKey = artistSortKey(a);
+  const bKey = artistSortKey(b);
+  const aLetter = /^\p{L}/u.test(aKey);
+  const bLetter = /^\p{L}/u.test(bKey);
+  return Number(bLetter) - Number(aLetter) ||
+    aKey.localeCompare(bKey, undefined, { numeric: true, sensitivity: "base" });
+}
 
-const cacheDb = new Promise((resolve,reject) => {
-  const request=indexedDB.open('cardedex-cache',1);
-  request.onupgradeneeded=()=>request.result.createObjectStore('json');
-  request.onsuccess=()=>resolve(request.result); request.onerror=()=>reject(request.error);
+const cacheDb = new Promise((resolve, reject) => {
+  const request = indexedDB.open("cardedex-cache", 1);
+  request.onupgradeneeded = () => request.result.createObjectStore("json");
+  request.onsuccess = () => resolve(request.result);
+  request.onerror = () => reject(request.error);
 });
-async function cacheRead(key) { try { const db=await cacheDb; return await new Promise((resolve,reject)=>{const r=db.transaction('json').objectStore('json').get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);}); } catch { return null; } }
-async function cacheWrite(key,value) { try { const db=await cacheDb; const tx=db.transaction('json','readwrite'); tx.objectStore('json').put(value,key); } catch {} }
-async function getJson(url, cache=true, fresh=false) {
-  try { const response=await fetch(url,fresh?{cache:'no-cache'}:undefined); if(!response.ok)throw new Error(`Request failed (${response.status})`); const value=await response.json(); if(cache)cacheWrite(url,value); return value; }
-  catch(error) { const cached=cache ? await cacheRead(url) : null; if(cached)return cached; throw error; }
+async function cacheRead(key) {
+  try {
+    const db = await cacheDb;
+    return await new Promise((resolve, reject) => {
+      const r = db.transaction("json").objectStore("json").get(key);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+  } catch {
+    return null;
+  }
+}
+async function cacheWrite(key, value) {
+  try {
+    const db = await cacheDb;
+    const tx = db.transaction("json", "readwrite");
+    tx.objectStore("json").put(value, key);
+  } catch {}
+}
+async function getJson(url, cache = true, fresh = false) {
+  try {
+    const response = await fetch(
+      url,
+      fresh ? { cache: "no-cache" } : undefined,
+    );
+    if (!response.ok) throw new Error(`Request failed (${response.status})`);
+    const value = await response.json();
+    if (cache) cacheWrite(url, value);
+    return value;
+  } catch (error) {
+    const cached = cache ? await cacheRead(url) : null;
+    if (cached) return cached;
+    throw error;
+  }
 }
 
 async function loadPokemon() {
-  renderGridSkeletons(); applySettings();
+  renderGridSkeletons();
+  applySettings();
   try {
-    const data=await getJson(`${POKE_API}/pokemon-species?limit=2000`);
-    state.pokemon=data.results.map(p=>({...p,id:pokemonId(p.url)})).filter(p=>Number.isFinite(p.id)).sort((a,b)=>a.id-b.id);
-    state.pokemonAliases=state.pokemon.map(pokemon=>({id:pokemon.id,slug:pokemon.name,name:normalizeCardName(tcgNameOverrides[pokemon.name]||titleCase(pokemon.name))}));
-    applyFilters(); if(searchInput.value.trim())renderSearchSuggestions(); loadIllustrators(); loadMainCardFilters(); loadMainRarities(); const slug=new URLSearchParams(location.search).get('pokemon'); if(slug)openPokemon(slug,false);
-  } catch { grid.innerHTML=`<div class="cards-message"><strong>${t('unavailablePokedex')}</strong><br>${t('connectOffline')}</div>`; resultCount.textContent='0'; }
+    const data = await getJson(`${POKE_API}/pokemon-species?limit=2000`);
+    state.pokemon = data.results.map((p) => ({ ...p, id: pokemonId(p.url) }))
+      .filter((p) => Number.isFinite(p.id)).sort((a, b) => a.id - b.id);
+    state.pokemonAliases = state.pokemon.map((pokemon) => ({
+      id: pokemon.id,
+      slug: pokemon.name,
+      name: normalizeCardName(
+        tcgNameOverrides[pokemon.name] || titleCase(pokemon.name),
+      ),
+    }));
+    applyFilters();
+    if (searchInput.value.trim()) renderSearchSuggestions();
+    loadIllustrators();
+    loadMainCardFilters();
+    loadMainRarities();
+    const slug = new URLSearchParams(location.search).get("pokemon");
+    if (slug) openPokemon(slug, false);
+  } catch {
+    grid.innerHTML = `<div class="cards-message"><strong>${
+      t("unavailablePokedex")
+    }</strong><br>${t("connectOffline")}</div>`;
+    resultCount.textContent = "0";
+  }
 }
-function renderGridSkeletons(){ grid.innerHTML=Array.from({length:12},()=>'<div class="pokemon-card skeleton" aria-hidden="true"></div>').join(''); }
-function applyFilters(){const query=state.query.trim().toLowerCase().replace(/^#/,'');state.filtered=state.pokemon.filter(p=>{const range=generationRanges[state.generation];const byArtist=!state.artistPokemonIds||state.artistPokemonIds.has(p.id);const byRelease=!state.catalogPokemonIds||state.catalogPokemonIds.has(p.id);const byRarity=!state.rarityPokemonIds||state.rarityPokemonIds.has(p.id);return byArtist&&byRelease&&byRarity&&(!range||(p.id>=range[0]&&p.id<=range[1]))&&(!query||p.name.includes(query)||String(p.id)===query||String(p.id).padStart(4,'0').startsWith(query));});state.filtered.sort(state.mainOrder==='cardNumber'&&state.catalogCardOrder.size?(a,b)=>(state.catalogCardOrder.get(a.id)??Number.MAX_SAFE_INTEGER)-(state.catalogCardOrder.get(b.id)??Number.MAX_SAFE_INTEGER)||a.id-b.id:(a,b)=>a.id-b.id);state.visible=PAGE_SIZE;renderPokemon();}
-let searchSuggestionIndex=-1;
-function matchingPokemonSuggestions(value){const raw=value.trim().replace(/^#/,'');if(!raw)return[];const query=normalizeCardName(raw);const numeric=/^\d+$/.test(query);return state.pokemonAliases.filter(pokemon=>numeric?String(pokemon.id)===query||String(pokemon.id).padStart(4,'0').startsWith(query):pokemon.name.includes(query)).sort((a,b)=>{if(numeric)return(Number(String(a.id)!==query)-Number(String(b.id)!==query))||a.id-b.id;const rank=item=>item.name===query?0:item.name.startsWith(query)?1:item.name.split(' ').some(word=>word.startsWith(query))?2:3;return rank(a)-rank(b)||a.id-b.id;}).slice(0,8);}
-function hideSearchSuggestions(){searchSuggestions.hidden=true;searchInput.setAttribute('aria-expanded','false');searchSuggestionIndex=-1;}
-function highlightSearchSuggestion(index){const options=[...searchSuggestions.querySelectorAll('[data-pokemon]')];if(!options.length)return;searchSuggestionIndex=(index+options.length)%options.length;options.forEach((option,i)=>option.classList.toggle('active',i===searchSuggestionIndex));options[searchSuggestionIndex].scrollIntoView({block:'nearest'});}
-function renderSearchSuggestions(){const matches=matchingPokemonSuggestions(searchInput.value);if(!matches.length){hideSearchSuggestions();return;}searchSuggestions.innerHTML=matches.map(pokemon=>`<button type="button" role="option" data-pokemon="${escapeHtml(pokemon.slug)}"><img src="${ART}/${pokemon.id}.png" alt=""><strong>${escapeHtml(titleCase(pokemon.slug))}</strong><small>${formatId(pokemon.id)}</small></button>`).join('');searchSuggestions.hidden=false;searchInput.setAttribute('aria-expanded','true');searchSuggestionIndex=-1;}
-function choosePokemonSuggestion(name){const pokemon=state.pokemon.find(item=>item.name===name);if(!pokemon)return;searchInput.value=titleCase(pokemon.name);state.query=pokemon.name;applyFilters();hideSearchSuggestions();openPokemon(pokemon.name);}
-function renderPokemon(){
-  grid.innerHTML='';const fragment=document.createDocumentFragment();state.filtered.slice(0,state.visible).forEach(pokemon=>{const node=template.content.cloneNode(true);const button=node.querySelector('.pokemon-card');const image=node.querySelector('img');const star=node.querySelector('.favorite-star');const cardLink=node.querySelector('.card-copy > span');button.dataset.name=pokemon.name;button.style.setProperty('--tint',tintFor(pokemon.id));button.setAttribute('aria-label',state.settings.language==='da'?`Åbn ${titleCase(pokemon.name)}, og se dens kort`:`Open ${titleCase(pokemon.name)} and view its cards`);node.querySelector('.card-number').textContent=formatId(pokemon.id);node.querySelector('strong').textContent=titleCase(pokemon.name);const scopes=[state.artist,state.catalogPokemonIds,state.rarityPokemonIds].filter(Boolean).length;if(scopes===1){const counts=state.artist?state.artistCardCounts:state.catalogPokemonIds?state.catalogCardCounts:state.rarityCardCounts;const count=counts.get(pokemon.id)||0;cardLink.innerHTML=`${count} ${state.settings.language==='da'?'kort':`card${count===1?'':'s'}`} <i>↗</i>`;}else if(scopes>1)cardLink.innerHTML=`${t('matchingCards')} <i>↗</i>`;else cardLink.innerHTML=`${t('viewCards')} <i>↗</i>`;star.classList.toggle('active',state.favorites.has(pokemon.id));star.textContent=state.favorites.has(pokemon.id)?'★':'☆';star.dataset.id=pokemon.id;image.src=`${ART}/${pokemon.id}.png`;image.alt=titleCase(pokemon.name);fragment.append(node);});grid.append(fragment);resultCount.textContent=state.filtered.length.toLocaleString();emptyState.hidden=state.filtered.length!==0;loadMore.hidden=state.visible>=state.filtered.length;
+function renderGridSkeletons() {
+  grid.innerHTML = Array.from(
+    { length: 12 },
+    () => '<div class="pokemon-card skeleton" aria-hidden="true"></div>',
+  ).join("");
+}
+function applyFilters() {
+  const query = state.query.trim().toLowerCase().replace(/^#/, "");
+  state.filtered = state.pokemon.filter((p) => {
+    const range = generationRanges[state.generation];
+    const byArtist = !state.artistPokemonIds ||
+      state.artistPokemonIds.has(p.id);
+    const byRelease = !state.catalogPokemonIds ||
+      state.catalogPokemonIds.has(p.id);
+    const byRarity = !state.rarityPokemonIds ||
+      state.rarityPokemonIds.has(p.id);
+    return byArtist && byRelease && byRarity &&
+      (!range || (p.id >= range[0] && p.id <= range[1])) &&
+      (!query || p.name.includes(query) || String(p.id) === query ||
+        String(p.id).padStart(4, "0").startsWith(query));
+  });
+  state.filtered.sort(
+    state.mainOrder === "cardNumber" && state.catalogCardOrder.size
+      ? (a, b) =>
+        (state.catalogCardOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+          (state.catalogCardOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER) ||
+        a.id - b.id
+      : (a, b) => a.id - b.id,
+  );
+  state.visible = PAGE_SIZE;
+  renderPokemon();
+}
+let searchSuggestionIndex = -1;
+function matchingPokemonSuggestions(value) {
+  const raw = value.trim().replace(/^#/, "");
+  if (!raw) return [];
+  const query = normalizeCardName(raw);
+  const numeric = /^\d+$/.test(query);
+  return state.pokemonAliases.filter((pokemon) =>
+    numeric
+      ? String(pokemon.id) === query ||
+        String(pokemon.id).padStart(4, "0").startsWith(query)
+      : pokemon.name.includes(query)
+  ).sort((a, b) => {
+    if (numeric) {
+      return (Number(String(a.id) !== query) -
+        Number(String(b.id) !== query)) || a.id - b.id;
+    }
+    const rank = (item) =>
+      item.name === query
+        ? 0
+        : item.name.startsWith(query)
+        ? 1
+        : item.name.split(" ").some((word) => word.startsWith(query))
+        ? 2
+        : 3;
+    return rank(a) - rank(b) || a.id - b.id;
+  }).slice(0, 8);
+}
+function hideSearchSuggestions() {
+  searchSuggestions.hidden = true;
+  searchInput.setAttribute("aria-expanded", "false");
+  searchSuggestionIndex = -1;
+}
+function highlightSearchSuggestion(index) {
+  const options = [...searchSuggestions.querySelectorAll("[data-pokemon]")];
+  if (!options.length) return;
+  searchSuggestionIndex = (index + options.length) % options.length;
+  options.forEach((option, i) =>
+    option.classList.toggle("active", i === searchSuggestionIndex)
+  );
+  options[searchSuggestionIndex].scrollIntoView({ block: "nearest" });
+}
+function renderSearchSuggestions() {
+  const matches = matchingPokemonSuggestions(searchInput.value);
+  if (!matches.length) {
+    hideSearchSuggestions();
+    return;
+  }
+  searchSuggestions.innerHTML = matches.map((pokemon) =>
+    `<button type="button" role="option" data-pokemon="${
+      escapeHtml(pokemon.slug)
+    }"><img src="${ART}/${pokemon.id}.png" alt=""><strong>${
+      escapeHtml(titleCase(pokemon.slug))
+    }</strong><small>${formatId(pokemon.id)}</small></button>`
+  ).join("");
+  searchSuggestions.hidden = false;
+  searchInput.setAttribute("aria-expanded", "true");
+  searchSuggestionIndex = -1;
+}
+function choosePokemonSuggestion(name) {
+  const pokemon = state.pokemon.find((item) => item.name === name);
+  if (!pokemon) return;
+  searchInput.value = titleCase(pokemon.name);
+  state.query = pokemon.name;
+  applyFilters();
+  hideSearchSuggestions();
+  openPokemon(pokemon.name);
+}
+function renderPokemon() {
+  grid.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+  state.filtered.slice(0, state.visible).forEach((pokemon) => {
+    const node = template.content.cloneNode(true);
+    const button = node.querySelector(".pokemon-card");
+    const image = node.querySelector("img");
+    const star = node.querySelector(".favorite-star");
+    const cardLink = node.querySelector(".card-copy > span");
+    button.dataset.name = pokemon.name;
+    button.style.setProperty("--tint", tintFor(pokemon.id));
+    button.setAttribute(
+      "aria-label",
+      state.settings.language === "da"
+        ? `Åbn ${titleCase(pokemon.name)}, og se dens kort`
+        : `Open ${titleCase(pokemon.name)} and view its cards`,
+    );
+    node.querySelector(".card-number").textContent = formatId(pokemon.id);
+    node.querySelector("strong").textContent = titleCase(pokemon.name);
+    const scopes =
+      [state.artist, state.catalogPokemonIds, state.rarityPokemonIds].filter(
+        Boolean,
+      ).length;
+    if (scopes === 1) {
+      const counts = state.artist
+        ? state.artistCardCounts
+        : state.catalogPokemonIds
+        ? state.catalogCardCounts
+        : state.rarityCardCounts;
+      const count = counts.get(pokemon.id) || 0;
+      cardLink.innerHTML = `${count} ${
+        state.settings.language === "da"
+          ? "kort"
+          : `card${count === 1 ? "" : "s"}`
+      } <i>↗</i>`;
+    } else if (scopes > 1) {
+      cardLink.innerHTML = `${t("matchingCards")} <i>↗</i>`;
+    } else cardLink.innerHTML = `${t("viewCards")} <i>↗</i>`;
+    star.classList.toggle("active", state.favorites.has(pokemon.id));
+    star.textContent = state.favorites.has(pokemon.id) ? "★" : "☆";
+    star.dataset.id = pokemon.id;
+    image.src = `${ART}/${pokemon.id}.png`;
+    image.alt = titleCase(pokemon.name);
+    fragment.append(node);
+  });
+  grid.append(fragment);
+  resultCount.textContent = state.filtered.length.toLocaleString();
+  emptyState.hidden = state.filtered.length !== 0;
+  loadMore.hidden = state.visible >= state.filtered.length;
 }
 
-function isPocketSet(set){return set?.seriesId===POCKET_SERIES_ID||set?.serie?.id===POCKET_SERIES_ID||set?.seriesName==='Pokémon TCG Pocket'||set?.serie?.name==='Pokémon TCG Pocket';}
-function isPocketCard(card){const code=card.setCode||setCode(card.id);return card.series==='Pokémon TCG Pocket'||isPocketSet(card.set)||state.cardSets.some(set=>set.id===code&&isPocketSet(set));}
-function cardIsVisible(card){return!state.settings.hidePocket||!isPocketCard(card);}
-function renderMainSeriesOptions(){const series=state.cardSeries.filter(item=>!state.settings.hidePocket||item.id!==POCKET_SERIES_ID);if(!series.some(item=>item.id===state.catalogSeries))state.catalogSeries='all';mainSeriesFilter.innerHTML=`<option value="all">${t('allSeries')}</option>`+series.map(item=>`<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join('');mainSeriesFilter.value=state.catalogSeries;}
-async function loadMainCardFilters(){try{const series=await getJson(`${TCG_API}/series`);state.cardSeries=series.filter(item=>item?.id&&item?.name);renderMainSeriesOptions();mainSetFilter.innerHTML=`<option value="all">${t('loadingSets')}</option>`;mainSetFilter.disabled=true;const queue=[...state.cardSeries];const details=[];const workers=Array.from({length:6},async()=>{while(queue.length){const item=queue.shift();try{details.push(await getJson(`${TCG_API}/series/${encodeURIComponent(item.id)}`));}catch{}}});await Promise.all(workers);const seriesOrder=new Map(state.cardSeries.map((item,index)=>[item.id,index]));state.cardSets=details.flatMap(detail=>(detail.sets||[]).map((set,index)=>({...set,seriesId:detail.id,seriesName:detail.name,seriesOrder:seriesOrder.get(detail.id)??999,setOrder:index}))).sort((a,b)=>a.name.localeCompare(b.name));mainSetFilter.disabled=false;renderMainSeriesOptions();renderMainSetOptions();if(state.current){renderCardFilters();renderCards();}}catch{mainSeriesFilter.disabled=true;mainSetFilter.disabled=true;}}
-async function loadMainRarities(){try{const rarities=await getJson(`${TCG_API}/rarities`);state.cardRarities=[...new Set(rarities.filter(value=>typeof value==='string'&&value.trim()))].sort((a,b)=>a.localeCompare(b));mainRarityFilter.innerHTML=`<option value="all">${t('allRarities')}</option>`+state.cardRarities.map(rarity=>`<option value="${escapeHtml(rarity)}">${escapeHtml(rarity)}</option>`).join('');}catch{mainRarityFilter.disabled=true;}}
-function renderMainSetOptions(){const sets=(state.catalogSeries==='all'?state.cardSets:state.cardSets.filter(set=>set.seriesId===state.catalogSeries)).filter(set=>!state.settings.hidePocket||!isPocketSet(set));mainSetFilter.innerHTML=`<option value="all">${t('allSets')}</option>`+sets.map(set=>`<option value="${escapeHtml(set.id)}">${escapeHtml(set.name)}</option>`).join('');mainSetFilter.value=sets.some(set=>set.id===state.catalogSet)?state.catalogSet:'all';if(mainSetFilter.value==='all')state.catalogSet='all';}
-function updateMainOrderControl(){const option=mainOrderFilter.querySelector('[value="cardNumber"]');const hasRelease=state.catalogSeries!=='all'||state.catalogSet!=='all';option.disabled=!hasRelease;option.textContent=hasRelease?t('orderCard'):t('chooseSet');if(!hasRelease&&state.mainOrder==='cardNumber'){state.mainOrder='pokedex';mainOrderFilter.value='pokedex';}}
-async function applyMainRarityFilter(){const request=++state.rarityRequest;if(state.catalogRarity==='all'){state.rarityPokemonIds=null;state.rarityCardIds=null;state.rarityCardCounts=new Map();rarityFilterStatus.hidden=true;applyFilters();return;}state.rarityPokemonIds=new Set();state.rarityCardIds=new Set();state.rarityCardCounts=new Map();rarityFilterStatus.hidden=false;rarityFilterStatus.textContent=state.settings.language==='da'?`Indlæser kort med sjældenheden ${state.catalogRarity}…`:`Loading ${state.catalogRarity} cards…`;applyFilters();try{const detail=await getJson(`${TCG_API}/rarities/${encodeURIComponent(state.catalogRarity)}`);if(request!==state.rarityRequest)return;const cards=(detail.cards||[]).filter(cardIsVisible);const counts=mapArtistCards(cards);state.rarityCardIds=new Set(cards.map(card=>card.id));state.rarityCardCounts=counts;state.rarityPokemonIds=new Set(counts.keys());rarityFilterStatus.textContent=state.settings.language==='da'?`${counts.size} Pokémon · ${cards.length} kort med sjældenheden ${state.catalogRarity}`:`${counts.size} Pokémon · ${cards.length} ${state.catalogRarity} cards`;applyFilters();}catch{if(request===state.rarityRequest)rarityFilterStatus.textContent=state.settings.language==='da'?`Kort med sjældenheden ${state.catalogRarity} kunne ikke indlæses.`:`Could not load ${state.catalogRarity} cards.`;}}
-async function applyMainCardFilter(){const request=++state.catalogRequest;updateMainOrderControl();if(state.catalogSeries==='all'&&state.catalogSet==='all'){state.catalogPokemonIds=null;state.catalogCardIds=null;state.catalogCardCounts=new Map();state.catalogCardOrder=new Map();catalogFilterStatus.hidden=true;applyFilters();return;}state.catalogPokemonIds=new Set();state.catalogCardIds=new Set();state.catalogCardCounts=new Map();state.catalogCardOrder=new Map();state.generation='all';document.querySelectorAll('#generationFilters button').forEach(button=>button.classList.toggle('active',button.dataset.gen==='all'));const selectedSet=state.cardSets.find(set=>set.id===state.catalogSet);const selectedSeries=state.cardSeries.find(series=>series.id===state.catalogSeries);const label=selectedSet?.name||selectedSeries?.name||(state.settings.language==='da'?'valget':'selection');catalogFilterStatus.hidden=false;catalogFilterStatus.textContent=state.settings.language==='da'?`Indlæser Pokémon fra ${label}…`:`Loading Pokémon from ${label}…`;applyFilters();try{const sets=(selectedSet?[selectedSet]:state.cardSets.filter(set=>set.seriesId===state.catalogSeries)).sort((a,b)=>a.seriesOrder-b.seriesOrder||a.setOrder-b.setOrder);const queue=[...sets];const cards=[];const workers=Array.from({length:6},async()=>{while(queue.length){const set=queue.shift();try{const detail=await getJson(`${TCG_API}/sets/${encodeURIComponent(set.id)}`);cards.push(...(detail.cards||[]));}catch{}}});await Promise.all(workers);if(request!==state.catalogRequest)return;const counts=mapArtistCards(cards);const setRank=new Map(sets.map((set,index)=>[set.id,index]));const orderedCards=[...cards].sort((a,b)=>(setRank.get(setCode(a.id))??999)-(setRank.get(setCode(b.id))??999)||String(a.localId).localeCompare(String(b.localId),undefined,{numeric:true,sensitivity:'base'}));const order=new Map();orderedCards.forEach((card,index)=>pokemonIdsForCard(card).forEach(id=>{if(!order.has(id))order.set(id,index);}));state.catalogCardIds=new Set(cards.map(card=>card.id));state.catalogCardCounts=counts;state.catalogCardOrder=order;state.catalogPokemonIds=new Set(counts.keys());catalogFilterStatus.textContent=state.settings.language==='da'?`${counts.size} Pokémon · ${cards.length} kort i ${label}`:`${counts.size} Pokémon · ${cards.length} cards in ${label}`;applyFilters();}catch{if(request===state.catalogRequest)catalogFilterStatus.textContent=state.settings.language==='da'?`Kort fra ${label} kunne ikke indlæses.`:`Could not load cards from ${label}.`;}}
-
-async function loadIllustrators(){try{const list=await getJson(`${TCG_API}/illustrators`);state.illustrators=[...new Set(list.map(cleanIllustratorName).filter(Boolean))].sort(compareArtists);mainArtistInput.placeholder=t('searchIllustrator');}catch{mainArtistInput.placeholder=t('illustratorsOffline');}}
-function pokemonIdsForCard(card){const haystack=` ${normalizeCardName(card.name)} `;return state.pokemonAliases.filter(pokemon=>haystack.includes(` ${pokemon.name} `)).map(pokemon=>pokemon.id);}
-function mapArtistCards(cards){const counts=new Map();cards.forEach(card=>pokemonIdsForCard(card).forEach(id=>counts.set(id,(counts.get(id)||0)+1)));return counts;}
-function showArtistSuggestions(value=mainArtistInput.value){const query=value.trim().toLowerCase();if(!state.illustrators.length){artistSuggestions.innerHTML=`<span class="artist-suggestion-note">${t('loadingArtists')}</span>`;}else{const matches=state.illustrators.filter(name=>!query||name.toLowerCase().includes(query)).sort((a,b)=>{const aStarts=artistSortKey(a).startsWith(query);const bStarts=artistSortKey(b).startsWith(query);return Number(bStarts)-Number(aStarts)||compareArtists(a,b);}).slice(0,80);artistSuggestions.innerHTML=matches.length?matches.map(name=>`<button type="button" role="option" data-artist="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join(''):`<span class="artist-suggestion-note">${t('noArtists')}</span>`;}artistSuggestions.hidden=false;mainArtistInput.setAttribute('aria-expanded','true');}
-function hideArtistSuggestions(){artistSuggestions.hidden=true;mainArtistInput.setAttribute('aria-expanded','false');}
-async function selectMainArtist(value){const artist=state.illustrators.find(name=>name.toLowerCase()===value.trim().toLowerCase());if(!artist){if(value.trim())artistStatus.textContent=t('chooseSuggestion');return;}hideArtistSuggestions();mainArtistInput.value=artist;clearArtist.hidden=false;if(state.artist===artist&&(state.artistLoading||state.artistPokemonIds?.size)){const count=state.artistCardCounts.size;artistStatus.textContent=state.settings.language==='da'?`${count} Pokémon illustreret af ${artist}`:`${count} Pokémon illustrated by ${artist}`;return;}const request=++state.artistRequest;state.artist=artist;state.artistLoading=true;state.artistPokemonIds=new Set();state.artistCardIds=new Set();state.artistCardCounts=new Map();artistStatus.textContent=state.settings.language==='da'?`Indlæser kort illustreret af ${artist}…`:`Loading cards illustrated by ${artist}…`;state.generation='all';document.querySelectorAll('#generationFilters button').forEach(button=>button.classList.toggle('active',button.dataset.gen==='all'));applyFilters();try{const cards=(await getJson(`${TCG_API}/cards?illustrator=${encodeURIComponent(`eq:${artist}`)}`)).filter(cardIsVisible);if(request!==state.artistRequest)return;const counts=mapArtistCards(cards);state.artistCardIds=new Set(cards.map(card=>card.id));state.artistCardCounts=counts;state.artistPokemonIds=new Set(counts.keys());const generations=new Set([...counts.keys()].map(generationFor).filter(Boolean));artistStatus.textContent=state.settings.language==='da'?`${counts.size} Pokémon · ${cards.length} kort · ${generations.size} generation${generations.size===1?'':'er'}`:`${counts.size} Pokémon · ${cards.length} cards · ${generations.size} generation${generations.size===1?'':'s'}`;applyFilters();}catch{if(request===state.artistRequest)artistStatus.textContent=state.settings.language==='da'?'Illustratorens kort kunne ikke indlæses.':'Could not load this illustrator’s cards.';}finally{if(request===state.artistRequest)state.artistLoading=false;}}
-function clearMainArtist(){state.artistRequest++;state.artist=null;state.artistLoading=false;state.artistPokemonIds=null;state.artistCardIds=null;state.artistCardCounts=new Map();mainArtistInput.value='';clearArtist.hidden=true;artistStatus.textContent=t('artistPrompt');applyFilters();}
-
-async function openPokemon(name,updateHistory=true){
-  const basic=state.pokemon.find(p=>p.name===name||String(p.id)===String(name));if(!basic)return;state.current=basic;document.body.classList.add('drawer-open');backdrop.hidden=false;requestAnimationFrame(()=>{backdrop.classList.add('visible');drawer.classList.add('open');});drawer.setAttribute('aria-hidden','false');drawerContent.innerHTML=detailSkeleton(basic);if(updateHistory)history.pushState({pokemon:basic.name},'',`?pokemon=${basic.name}`);
-  try {const [pokemon,species]=await Promise.all([getJson(`${POKE_API}/pokemon/${basic.id}`),getJson(`${POKE_API}/pokemon-species/${basic.id}`)]);const evolution=species.evolution_chain?.url?await getJson(species.evolution_chain.url):null;if(state.current?.id!==basic.id)return;renderDetails(pokemon,species,evolution);loadCards(basic.name);} catch {drawerContent.innerHTML=state.settings.language==='da'?`<div class="cards-message"><strong>${titleCase(basic.name)} kunne ikke indlæses.</strong><br>Opret forbindelse igen for at gemme den til offlinebrug.</div>`:`<div class="cards-message"><strong>Couldn't load ${titleCase(basic.name)}.</strong><br>Reconnect once to save it for offline use.</div>`;}
+function isPocketSet(set) {
+  return set?.seriesId === POCKET_SERIES_ID ||
+    set?.serie?.id === POCKET_SERIES_ID ||
+    set?.seriesName === "Pokémon TCG Pocket" ||
+    set?.serie?.name === "Pokémon TCG Pocket";
 }
-function detailSkeleton(p){return`<section class="detail-hero" style="--detailTint:${tintFor(p.id)}"><div class="detail-art"><img src="${ART}/${p.id}.png" alt="${titleCase(p.name)}"></div><div class="detail-info"><span class="detail-number">${formatId(p.id)}</span><h2 id="drawerTitle">${titleCase(p.name)}</h2><p class="flavor">${t('loadingPokemon')}</p></div></section><section class="cards-section"><div class="cards-message"><div class="spinner"></div>${t('openingArchive')}</div></section>`;}
-function evolutionNames(chain){const names=[];function walk(node){if(!node)return;names.push(node.species.name);node.evolves_to.forEach(walk);}walk(chain?.chain);return names;}
-function statBars(pokemon){const da={hp:'HP',attack:'Angreb',defense:'Forsvar','special-attack':'Specialangreb','special-defense':'Specialforsvar',speed:'Hastighed'};return pokemon.stats.map(s=>`<div class="stat-row"><span>${state.settings.language==='da'?(da[s.stat.name]||titleCase(s.stat.name)):titleCase(s.stat.name)}</span><b>${s.base_stat}</b><span class="stat-track"><i style="width:${Math.min(100,s.base_stat/255*100)}%"></i></span></div>`).join('');}
-function renderDetails(pokemon,species,evolution){
-  const lang='en';const description=species.flavor_text_entries.find(e=>e.language.name===lang)?.flavor_text.replace(/[\n\f]/g,' ')||(state.settings.language==='da'?'Ingen beskrivelse tilgængelig.':'No description available.');const genus=species.genera.find(g=>g.language.name===lang)?.genus||'Pokémon';const typeDa={normal:'normal',fire:'ild',water:'vand',electric:'elektrisk',grass:'græs',ice:'is',fighting:'kamp',poison:'gift',ground:'jord',flying:'flyvende',psychic:'psykisk',bug:'insekt',rock:'sten',ghost:'spøgelse',dragon:'drage',dark:'mørke',steel:'stål',fairy:'fe'};const types=pokemon.types.map(type=>`<span class="type-pill" style="--typeColor:${typeColors[type.type.name]||'#65756c'}">${state.settings.language==='da'?(typeDa[type.type.name]||type.type.name):type.type.name}</span>`).join('');const abilities=pokemon.abilities.map(a=>titleCase(a.ability.name)).join(', ');const shiny=pokemon.sprites.other['official-artwork'].front_shiny;const art=state.settings.shiny&&shiny?shiny:(pokemon.sprites.other['official-artwork'].front_default||`${ART}/${pokemon.id}.png`);const fav=state.favorites.has(pokemon.id);const evo=evolutionNames(evolution).map(n=>`<button data-evolution="${n}">${titleCase(n)}</button>`).join('');
-  drawerContent.innerHTML=`<section class="detail-hero" style="--detailTint:${tintFor(pokemon.id)}"><div class="detail-art"><img id="pokemonArtwork" src="${art}" data-normal="${pokemon.sprites.other['official-artwork'].front_default}" data-shiny="${shiny||''}" alt="${titleCase(pokemon.name)}"></div><div class="detail-info"><span class="detail-number">${formatId(pokemon.id)} · ${genus}</span><h2 id="drawerTitle">${titleCase(pokemon.name)}</h2><div class="types">${types}</div><div class="detail-tools"><button id="detailFavorite" class="${fav?'active':''}">♥ ${t('favorite')}</button><button id="shinyToggle" class="${state.settings.shiny?'active':''}" ${shiny?'':'disabled'}>✦ ${t('shiny')}</button></div><p class="flavor">${description}</p><div class="facts"><div class="fact"><span>${t('height')}</span><strong>${(pokemon.height/10).toFixed(1)} m</strong></div><div class="fact"><span>${t('weight')}</span><strong>${(pokemon.weight/10).toFixed(1)} kg</strong></div><div class="fact"><span>${t('abilities')}</span><strong>${abilities}</strong></div></div><div class="stat-bars"><span class="section-kicker">${t('stats')}</span>${statBars(pokemon)}</div><div class="evolution-chain"><span class="section-kicker">${t('evolution')}</span>${evo}</div></div></section><section class="cards-section"><div class="cards-header"><div><span class="section-kicker">${t('archive')}</span><h3>${t('cardsFeaturing',{name:titleCase(pokemon.name)})}</h3><p id="cardsCount">${t('searchingSets')}</p><div class="collection-progress"><i id="collectionProgress" style="width:0"></i></div></div><select class="cards-sort" id="cardsSort"><option value="archive">${t('archiveOrder')}</option><option value="reverse">${t('reverseOrder')}</option><option value="name">${t('nameOrder')}</option></select></div><div class="card-filterbar" id="cardFilterbar"></div><div class="tcg-grid" id="tcgGrid"><div class="cards-message"><div class="spinner"></div>${t('lookingArchive')}</div></div></section>`;
-  document.querySelector('#cardsSort').addEventListener('change',e=>{state.sort=e.target.value;renderCards();});document.querySelector('#detailFavorite').addEventListener('click',()=>{toggleFavorite(pokemon.id);renderDetails(pokemon,species,evolution);if(state.cards.length)renderCards();});document.querySelector('#shinyToggle').addEventListener('click',()=>{state.settings.shiny=!state.settings.shiny;saveUser();renderDetails(pokemon,species,evolution);if(state.cards.length)renderCards();});
+function isPocketCard(card) {
+  const code = card.setCode || setCode(card.id);
+  return card.series === "Pokémon TCG Pocket" || isPocketSet(card.set) ||
+    state.cardSets.some((set) => set.id === code && isPocketSet(set));
+}
+function cardIsVisible(card) {
+  return !state.settings.hidePocket || !isPocketCard(card);
+}
+function renderMainSeriesOptions() {
+  const series = state.cardSeries.filter((item) =>
+    !state.settings.hidePocket || item.id !== POCKET_SERIES_ID
+  );
+  if (!series.some((item) => item.id === state.catalogSeries)) {
+    state.catalogSeries = "all";
+  }
+  mainSeriesFilter.innerHTML =
+    `<option value="all">${t("allSeries")}</option>` +
+    series.map((item) =>
+      `<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`
+    ).join("");
+  mainSeriesFilter.value = state.catalogSeries;
+}
+async function loadMainCardFilters() {
+  try {
+    const series = await getJson(`${TCG_API}/series`);
+    state.cardSeries = series.filter((item) => item?.id && item?.name);
+    renderMainSeriesOptions();
+    mainSetFilter.innerHTML = `<option value="all">${
+      t("loadingSets")
+    }</option>`;
+    mainSetFilter.disabled = true;
+    const queue = [...state.cardSeries];
+    const details = [];
+    const workers = Array.from({ length: 6 }, async () => {
+      while (queue.length) {
+        const item = queue.shift();
+        try {
+          details.push(
+            await getJson(`${TCG_API}/series/${encodeURIComponent(item.id)}`),
+          );
+        } catch {}
+      }
+    });
+    await Promise.all(workers);
+    const seriesOrder = new Map(
+      state.cardSeries.map((item, index) => [item.id, index]),
+    );
+    state.cardSets = details.flatMap((detail) =>
+      (detail.sets || []).map((set, index) => ({
+        ...set,
+        seriesId: detail.id,
+        seriesName: detail.name,
+        seriesOrder: seriesOrder.get(detail.id) ?? 999,
+        setOrder: index,
+      }))
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    mainSetFilter.disabled = false;
+    renderMainSeriesOptions();
+    renderMainSetOptions();
+    if (state.current) {
+      renderCardFilters();
+      renderCards();
+    }
+  } catch {
+    mainSeriesFilter.disabled = true;
+    mainSetFilter.disabled = true;
+  }
+}
+async function loadMainRarities() {
+  try {
+    const rarities = await getJson(`${TCG_API}/rarities`);
+    state.cardRarities = [
+      ...new Set(
+        rarities.filter((value) => typeof value === "string" && value.trim()),
+      ),
+    ].sort((a, b) => a.localeCompare(b));
+    mainRarityFilter.innerHTML =
+      `<option value="all">${t("allRarities")}</option>` +
+      state.cardRarities.map((rarity) =>
+        `<option value="${escapeHtml(rarity)}">${escapeHtml(rarity)}</option>`
+      ).join("");
+  } catch {
+    mainRarityFilter.disabled = true;
+  }
+}
+function renderMainSetOptions() {
+  const sets =
+    (state.catalogSeries === "all"
+      ? state.cardSets
+      : state.cardSets.filter((set) => set.seriesId === state.catalogSeries))
+      .filter((set) => !state.settings.hidePocket || !isPocketSet(set));
+  mainSetFilter.innerHTML = `<option value="all">${t("allSets")}</option>` +
+    sets.map((set) =>
+      `<option value="${escapeHtml(set.id)}">${escapeHtml(set.name)}</option>`
+    ).join("");
+  mainSetFilter.value = sets.some((set) => set.id === state.catalogSet)
+    ? state.catalogSet
+    : "all";
+  if (mainSetFilter.value === "all") state.catalogSet = "all";
+}
+function updateMainOrderControl() {
+  const option = mainOrderFilter.querySelector('[value="cardNumber"]');
+  const hasRelease = state.catalogSeries !== "all" ||
+    state.catalogSet !== "all";
+  option.disabled = !hasRelease;
+  option.textContent = hasRelease ? t("orderCard") : t("chooseSet");
+  if (!hasRelease && state.mainOrder === "cardNumber") {
+    state.mainOrder = "pokedex";
+    mainOrderFilter.value = "pokedex";
+  }
+}
+async function applyMainRarityFilter() {
+  const request = ++state.rarityRequest;
+  if (state.catalogRarity === "all") {
+    state.rarityPokemonIds = null;
+    state.rarityCardIds = null;
+    state.rarityCardCounts = new Map();
+    rarityFilterStatus.hidden = true;
+    applyFilters();
+    return;
+  }
+  state.rarityPokemonIds = new Set();
+  state.rarityCardIds = new Set();
+  state.rarityCardCounts = new Map();
+  rarityFilterStatus.hidden = false;
+  rarityFilterStatus.textContent = state.settings.language === "da"
+    ? `Indlæser kort med sjældenheden ${state.catalogRarity}…`
+    : `Loading ${state.catalogRarity} cards…`;
+  applyFilters();
+  try {
+    const detail = await getJson(
+      `${TCG_API}/rarities/${encodeURIComponent(state.catalogRarity)}`,
+    );
+    if (request !== state.rarityRequest) return;
+    const cards = (detail.cards || []).filter(cardIsVisible);
+    const counts = mapArtistCards(cards);
+    state.rarityCardIds = new Set(cards.map((card) => card.id));
+    state.rarityCardCounts = counts;
+    state.rarityPokemonIds = new Set(counts.keys());
+    rarityFilterStatus.textContent = state.settings.language === "da"
+      ? `${counts.size} Pokémon · ${cards.length} kort med sjældenheden ${state.catalogRarity}`
+      : `${counts.size} Pokémon · ${cards.length} ${state.catalogRarity} cards`;
+    applyFilters();
+  } catch {
+    if (request === state.rarityRequest) {
+      rarityFilterStatus.textContent = state.settings.language === "da"
+        ? `Kort med sjældenheden ${state.catalogRarity} kunne ikke indlæses.`
+        : `Could not load ${state.catalogRarity} cards.`;
+    }
+  }
+}
+async function applyMainCardFilter() {
+  const request = ++state.catalogRequest;
+  updateMainOrderControl();
+  if (state.catalogSeries === "all" && state.catalogSet === "all") {
+    state.catalogPokemonIds = null;
+    state.catalogCardIds = null;
+    state.catalogCardCounts = new Map();
+    state.catalogCardOrder = new Map();
+    catalogFilterStatus.hidden = true;
+    applyFilters();
+    return;
+  }
+  state.catalogPokemonIds = new Set();
+  state.catalogCardIds = new Set();
+  state.catalogCardCounts = new Map();
+  state.catalogCardOrder = new Map();
+  state.generation = "all";
+  document.querySelectorAll("#generationFilters button").forEach((button) =>
+    button.classList.toggle("active", button.dataset.gen === "all")
+  );
+  const selectedSet = state.cardSets.find((set) => set.id === state.catalogSet);
+  const selectedSeries = state.cardSeries.find((series) =>
+    series.id === state.catalogSeries
+  );
+  const label = selectedSet?.name || selectedSeries?.name ||
+    (state.settings.language === "da" ? "valget" : "selection");
+  catalogFilterStatus.hidden = false;
+  catalogFilterStatus.textContent = state.settings.language === "da"
+    ? `Indlæser Pokémon fra ${label}…`
+    : `Loading Pokémon from ${label}…`;
+  applyFilters();
+  try {
+    const sets = (selectedSet
+      ? [selectedSet]
+      : state.cardSets.filter((set) =>
+        set.seriesId === state.catalogSeries
+      )).sort((a, b) =>
+        a.seriesOrder - b.seriesOrder || a.setOrder - b.setOrder
+      );
+    const queue = [...sets];
+    const cards = [];
+    const workers = Array.from({ length: 6 }, async () => {
+      while (queue.length) {
+        const set = queue.shift();
+        try {
+          const detail = await getJson(
+            `${TCG_API}/sets/${encodeURIComponent(set.id)}`,
+          );
+          cards.push(...(detail.cards || []));
+        } catch {}
+      }
+    });
+    await Promise.all(workers);
+    if (request !== state.catalogRequest) return;
+    const counts = mapArtistCards(cards);
+    const setRank = new Map(sets.map((set, index) => [set.id, index]));
+    const orderedCards = [...cards].sort((a, b) =>
+      (setRank.get(setCode(a.id)) ?? 999) -
+        (setRank.get(setCode(b.id)) ?? 999) ||
+      String(a.localId).localeCompare(String(b.localId), undefined, {
+        numeric: true,
+        sensitivity: "base",
+      })
+    );
+    const order = new Map();
+    orderedCards.forEach((card, index) =>
+      pokemonIdsForCard(card).forEach((id) => {
+        if (!order.has(id)) order.set(id, index);
+      })
+    );
+    state.catalogCardIds = new Set(cards.map((card) => card.id));
+    state.catalogCardCounts = counts;
+    state.catalogCardOrder = order;
+    state.catalogPokemonIds = new Set(counts.keys());
+    catalogFilterStatus.textContent = state.settings.language === "da"
+      ? `${counts.size} Pokémon · ${cards.length} kort i ${label}`
+      : `${counts.size} Pokémon · ${cards.length} cards in ${label}`;
+    applyFilters();
+  } catch {
+    if (request === state.catalogRequest) {
+      catalogFilterStatus.textContent = state.settings.language === "da"
+        ? `Kort fra ${label} kunne ikke indlæses.`
+        : `Could not load cards from ${label}.`;
+    }
+  }
 }
 
-function deriveVariant(name){const tests=[['V-UNION',/V-UNION/i],['VMAX',/\bVMAX\b/i],['VSTAR',/\bVSTAR\b/i],['LV.X',/LV\.X/i],['BREAK',/\bBREAK\b/i],['TAG TEAM',/\bTAG TEAM\b/i],['Radiant',/^Radiant\b/i],['Prism Star',/◇|Prism Star/i],['GX',/\bGX\b/i],['EX',/\bEX\b/],['ex',/\bex\b/],['V',/\bV\b/],['δ Delta',/δ|Delta Species/i]];return tests.find(([,re])=>re.test(name))?.[0]||'Standard';}
-function setCode(id){return id.slice(0,id.lastIndexOf('-'));}
-function cardImageUrl(card,size='low'){return cardImageOverrides[card.id]||(card.image?`${card.image}/${size}.webp`:'');}
-async function loadCards(name){try{const printedName=tcgNameOverrides[name]||titleCase(name);const cards=await getJson(`${TCG_API}/cards?name=${encodeURIComponent(printedName)}`);if(state.current?.name!==name)return;const escaped=printedName.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const exact=new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`,'i');state.cards=cards.filter(c=>(c.image||cardImageOverrides[c.id])&&exact.test(c.name)).map(c=>({...c,variant:deriveVariant(c.name),setCode:setCode(c.id)}));state.advancedLoaded=false;state.cardFilters={variant:'all',status:'all',series:'all',set:'all',rarity:'all',illustrator:'all'};renderCardFilters();renderCards();loadSetMetadata(state.cards,name);loadAdvancedMetadata();}catch{const el=document.querySelector('#tcgGrid');if(el)el.innerHTML=`<div class="cards-message"><strong>${t('unavailableCards')}</strong><br>${t('viewedOffline')}</div>`;}}
-async function loadSetMetadata(cards,pokemonName){const codes=[...new Set(cards.map(c=>c.setCode))];const queue=[...codes];const setMap=new Map();const workers=Array.from({length:6},async()=>{while(queue.length){const code=queue.shift();try{setMap.set(code,await getJson(`${TCG_API}/sets/${encodeURIComponent(code)}`));}catch{}}});await Promise.all(workers);if(state.cards!==cards||state.current?.name!==pokemonName)return;cards.forEach(card=>{const set=setMap.get(card.setCode);if(set){card.set=set;card.series=set.serie?.name||'Other';card.seriesId=set.serie?.id;}});renderCardFilters();renderCards();}
-function renderCardFilters(){const bar=document.querySelector('#cardFilterbar');if(!bar)return;const visibleCards=state.cards.filter(cardIsVisible);const variants=[...new Set(visibleCards.map(c=>c.variant))].sort();const sets=[...new Set(visibleCards.map(c=>c.set?.name).filter(Boolean))].sort();const series=[...new Set(visibleCards.map(c=>c.series).filter(Boolean))].sort();const rarities=[...new Set(visibleCards.map(c=>c.rarity).filter(Boolean))].sort();const illustrators=[...new Set(visibleCards.map(c=>c.illustrator).filter(Boolean))].sort((a,b)=>a.localeCompare(b));bar.innerHTML=`<select data-filter="variant"><option value="all">${t('allVariants')}</option>${variants.map(v=>`<option ${state.cardFilters.variant===v?'selected':''}>${v}</option>`).join('')}</select><select data-filter="status"><option value="all">${t('allStatuses')}</option><option value="owned">${t('owned')}</option><option value="wanted">${t('wanted')}</option><option value="missing">${t('missing')}</option></select><select data-filter="series" ${series.length?'':'disabled'}><option value="all">${series.length?t('allSeries'):t('loadingSeries')}</option>${series.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select><select data-filter="set" ${sets.length?'':'disabled'}><option value="all">${sets.length?t('allSets'):t('loadingSetNames')}</option>${sets.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select><select data-filter="rarity" ${rarities.length?'':'disabled'}><option value="all">${t('allRarities')}</option>${rarities.map(v=>`<option>${escapeHtml(v)}</option>`).join('')}</select><select data-filter="illustrator" ${illustrators.length?'':'disabled'}><option value="all">${illustrators.length?t('allArtists'):t('loadArtistNames')}</option>${illustrators.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('')}</select><button id="advancedFilters" ${state.advancedLoaded?'disabled':''}>${state.advancedLoaded?t('offline'):t('advanced')}</button>`;bar.querySelectorAll('select').forEach(s=>{s.value=state.cardFilters[s.dataset.filter]||'all';s.addEventListener('change',e=>{state.cardFilters[e.target.dataset.filter]=e.target.value;renderCards();});});document.querySelector('#advancedFilters').addEventListener('click',loadAdvancedMetadata);}
-function filteredCards(){return state.cards.filter(c=>{const status=state.cardStates[c.id]||'missing';return cardIsVisible(c)&&(!state.artist||state.artistCardIds?.has(c.id))&&(!state.catalogCardIds||state.catalogCardIds.has(c.id))&&(!state.rarityCardIds||state.rarityCardIds.has(c.id))&&(state.cardFilters.variant==='all'||c.variant===state.cardFilters.variant)&&(state.cardFilters.status==='all'||status===state.cardFilters.status)&&(state.cardFilters.series==='all'||c.series===state.cardFilters.series)&&(state.cardFilters.set==='all'||c.set?.name===state.cardFilters.set)&&(state.cardFilters.rarity==='all'||c.rarity===state.cardFilters.rarity)&&(state.cardFilters.illustrator==='all'||c.illustrator===state.cardFilters.illustrator);});}
-function cardQuantity(id,status){if(status!=='owned')return'';const quantity=Math.max(1,Number(state.cardCounts[id])||1);return`<span class="card-quantity" aria-label="${t('ownedCopies')}"><button data-count="-1" ${quantity<=1?'disabled':''} aria-label="${t('removeCopy')}">−</button><b>${quantity}</b><button data-count="1" aria-label="${t('addCopy')}">+</button></span>`;}
-function canonicalPrintVariant(value=''){const key=value.toLowerCase().replace(/[^a-z0-9]/g,'');if(key.includes('reverse'))return'reverse';if(key.includes('first')||key.includes('1st'))return'firstEdition';if(key.includes('holo'))return'holo';if(key.includes('promo'))return'wPromo';if(key.includes('unlimited')||key.includes('normal'))return'normal';return value;}
-function printVariantLabel(value){const labels=state.settings.language==='da'?{normal:'Normal',holo:'Holo',reverse:'Omvendt holo',firstEdition:'Første udgave',wPromo:'Promokort'}:{normal:'Normal',holo:'Holo',reverse:'Reverse holo',firstEdition:'First edition',wPromo:'Promo'};return labels[value]||titleCase(value);}
-function printVariantOptions(card){const options=[];Object.entries(card.variants||{}).forEach(([key,enabled])=>{const value=canonicalPrintVariant(key);if(enabled&&value&&!options.includes(value))options.push(value);});Object.entries(card.pricing?.tcgplayer||{}).forEach(([key,value])=>{if(value&&typeof value==='object'){const variant=canonicalPrintVariant(key);if(variant&&!options.includes(variant))options.push(variant);}});return options.sort((a,b)=>['normal','holo','reverse','firstEdition','wPromo'].indexOf(a)-['normal','holo','reverse','firstEdition','wPromo'].indexOf(b));}
-function selectedPrintVariant(card){const options=printVariantOptions(card);const savedVariant=state.cardPrintVariants[card.id];return options.includes(savedVariant)?savedVariant:(options[0]||'normal');}
-function cardPrintVariantControl(card,status){if(status!=='owned')return'';const options=printVariantOptions(card);if(!options.length)return`<span class="card-print-variant loading">${t('loadingPrint')}</span>`;const selected=selectedPrintVariant(card);return`<label class="card-print-variant">${t('print')}<select data-print-variant>${options.map(option=>`<option value="${option}" ${option===selected?'selected':''}>${printVariantLabel(option)}</option>`).join('')}</select></label>`;}
-async function hydrateOwnedCard(id){const targets=[...state.cards,...state.collectionCards].filter(card=>card.id===id);try{const full=await getJson(`${TCG_API}/cards/${encodeURIComponent(id)}`);targets.forEach(card=>Object.assign(card,full,{variant:full.suffix||card.variant||deriveVariant(full.name),series:card.series||full.set?.serie?.name||'Other series'}));if(state.cardStates[id]==='owned'&&!state.cardPrintVariants[id])state.cardPrintVariants[id]=selectedPrintVariant(full);saveUser();renderCards();if(collectionDialog.open){renderCollectionSummary();populateCollectionFilters();renderCollectionCards();}}catch{}}
-function setPrintVariant(id,variant){state.cardPrintVariants[id]=canonicalPrintVariant(variant);saveUser();renderCards();if(collectionDialog.open){renderCollectionSummary();renderCollectionCards();}}
-function renderCards(){
-  const cardGrid=document.querySelector('#tcgGrid');const count=document.querySelector('#cardsCount');if(!cardGrid||!count)return;let cards=filteredCards();if(state.sort==='name')cards.sort((a,b)=>a.name.localeCompare(b.name));if(state.sort==='reverse')cards.reverse();
-  const scopedCards=state.cards.filter(c=>cardIsVisible(c)&&(!state.artist||state.artistCardIds?.has(c.id))&&(!state.catalogCardIds||state.catalogCardIds.has(c.id))&&(!state.rarityCardIds||state.rarityCardIds.has(c.id)));const owned=scopedCards.filter(c=>state.cardStates[c.id]==='owned').length;const scopeLabels=[];const da=state.settings.language==='da';if(state.artist)scopeLabels.push(`${da?'af':'by'} ${state.artist}`);const selectedSet=state.cardSets.find(set=>set.id===state.catalogSet);const selectedSeries=state.cardSeries.find(series=>series.id===state.catalogSeries);if(selectedSet)scopeLabels.push(`${da?'i':'in'} ${selectedSet.name}`);else if(selectedSeries)scopeLabels.push(`${da?'i':'in'} ${selectedSeries.name}`);if(state.catalogRarity!=='all')scopeLabels.push(da?`med sjældenheden ${state.catalogRarity}`:`with ${state.catalogRarity} rarity`);const scopeLabel=scopeLabels.length?` ${scopeLabels.join(' ')}`:'';const cardLabel=cards.length===1?t('cardFound'):t('cards');count.textContent=`${cards.length.toLocaleString()} ${cardLabel}${scopeLabel} · ${owned}/${scopedCards.length} ${t('owned').toLowerCase()}`;
-  const progress=document.querySelector('#collectionProgress');if(progress)progress.style.width=`${scopedCards.length?owned/scopedCards.length*100:0}%`;if(!cards.length){cardGrid.innerHTML=`<div class="cards-message">${t('noMatchingCards')}</div>`;return;}cardGrid.innerHTML=cards.map(c=>{const status=state.cardStates[c.id]||'';return`<article class="tcg-card" data-card-id="${c.id}"><button class="tcg-open"><span class="tcg-image-wrap"><span class="variant-badge">${c.variant}</span><img loading="lazy" src="${cardImageUrl(c,'low')}" alt="${escapeHtml(c.name)}"></span><strong>${escapeHtml(c.name)}</strong><span>${escapeHtml(c.set?.name||t('setLoading'))} · ${escapeHtml(c.rarity||`${t('card')} ${c.localId}`)}</span></button><span class="card-status"><button data-status="owned" class="${status==='owned'?'active':''}">✓ ${t('owned')}</button><button data-status="wanted" class="${status==='wanted'?'active':''}">♥ ${t('wanted')}</button></span>${cardPrintVariantControl(c,status)}${cardQuantity(c.id,status)}</article>`;}).join('');
+async function loadIllustrators() {
+  try {
+    const list = await getJson(`${TCG_API}/illustrators`);
+    state.illustrators = [
+      ...new Set(list.map(cleanIllustratorName).filter(Boolean)),
+    ].sort(compareArtists);
+    mainArtistInput.placeholder = t("searchIllustrator");
+  } catch {
+    mainArtistInput.placeholder = t("illustratorsOffline");
+  }
 }
-async function loadAdvancedMetadata(){const button=document.querySelector('#advancedFilters');if(!button||button.disabled)return;const cards=state.cards;button.disabled=true;button.textContent=state.settings.language==='da'?'Indlæser sjældenhed og illustratorer…':'Loading rarity & artists…';let done=0;const queue=[...cards.filter(c=>!c.rarity||!c.illustrator||!c.variants||!c.pricing)];const total=queue.length;const workers=Array.from({length:6},async()=>{while(queue.length){const card=queue.shift();try{const details=await getJson(`${TCG_API}/cards/${card.id}`);card.rarity=details.rarity;card.illustrator=details.illustrator;card.suffix=details.suffix;card.variants=details.variants;card.pricing=details.pricing;card.variant=details.suffix||deriveVariant(card.name);}catch{}done++;button.textContent=state.settings.language==='da'?`Indlæser oplysninger ${done}/${total}`:`Loading details ${done}/${total}`;}});await Promise.all(workers);if(state.cards!==cards)return;state.advancedLoaded=true;if(state.artist&&cards.some(card=>card.illustrator===state.artist))state.cardFilters.illustrator=state.artist;renderCardFilters();renderCards();}
-
-async function openCard(card){
-  cardDialog.dataset.cardId=card.id;cardDialog.cardData=card;if(!cardDialog.open)cardDialog.showModal();const box=document.querySelector('#cardDetailContent');box.innerHTML=`<div class="card-detail-art"><img src="${cardImageUrl(card,'high')}" alt="${escapeHtml(card.name)}"></div><div class="card-detail-copy"><div class="spinner"></div>${t('loadingDetails')}</div>`;let full=card;try{full={...card,...await getJson(`${TCG_API}/cards/${card.id}`)};Object.assign(card,full);renderCardFilters();}catch{}
-  if(cardDialog.dataset.cardId!==card.id)return;const variants=Object.entries(full.variants||{}).filter(([,v])=>v).map(([k])=>`<span>${printVariantLabel(canonicalPrintVariant(k))}</span>`).join('')||`<span>${t('standard')}</span>`;const prices=priceSummary(full.pricing).map(p=>`<span class="price-chip">${escapeHtml(p.label)}: ${escapeHtml(p.value)}</span>`).join('');const setName=full.set?.name||t('unknownSet');const seriesName=full.series||t('otherSeries');const marketQuery=encodeURIComponent(`${full.name} ${setName} ${full.localId}`);const cardmarketId=full.pricing?.cardmarket?.idProduct;const cardmarketUrl=cardmarketId?`https://www.cardmarket.com/en/Pokemon/Products?idProduct=${encodeURIComponent(cardmarketId)}`:`https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(full.name)}`;const status=state.cardStates[full.id]||'';
-  box.innerHTML=`<div class="card-detail-art"><img src="${cardImageUrl(full,'high')}" alt="${escapeHtml(full.name)}"></div><div class="card-detail-copy"><span class="variant-title">${escapeHtml(full.suffix||deriveVariant(full.name))} ${t('variant')}</span><h2>${escapeHtml(full.name)}</h2><p>${escapeHtml(seriesName)} · ${escapeHtml(setName)} · #${escapeHtml(full.localId)}</p><div class="detail-meta"><div><span>${t('series')}</span><strong>${escapeHtml(seriesName)}</strong></div><div><span>${t('set')}</span><strong>${escapeHtml(setName)}</strong></div><div><span>${t('rarity')}</span><strong>${escapeHtml(full.rarity||t('unknown'))}</strong></div><div><span>${t('illustrator')}</span><strong>${escapeHtml(full.illustrator||t('unknown'))}</strong></div><div><span>${t('stage')}</span><strong>${escapeHtml(full.stage||'Pokémon')}</strong></div><div><span>${t('hpType')}</span><strong>${escapeHtml(full.hp||'—')} · ${escapeHtml((full.types||[]).join(', ')||'—')}</strong></div></div><div class="card-detail-collection"><span class="section-kicker">${t('collectionStatus')}</span><span class="card-status"><button data-detail-status="owned" class="${status==='owned'?'active':''}">✓ ${t('owned')}</button><button data-detail-status="wanted" class="${status==='wanted'?'active':''}">♥ ${t('wanted')}</button></span>${cardPrintVariantControl(full,status)}${cardQuantity(full.id,status)}</div><span class="section-kicker">${t('printVariants')}</span><div class="print-variants">${variants}</div>${prices?`<div class="price-list">${prices}</div>`:''}<div class="market-links"><a href="${cardmarketUrl}" target="_blank">Cardmarket ↗</a><a href="https://www.tcgplayer.com/search/pokemon/product?q=${marketQuery}" target="_blank">TCGplayer ↗</a></div></div>`;
+function pokemonIdsForCard(card) {
+  const haystack = ` ${normalizeCardName(card.name)} `;
+  return state.pokemonAliases.filter((pokemon) =>
+    haystack.includes(` ${pokemon.name} `)
+  ).map((pokemon) => pokemon.id);
 }
-function priceSummary(pricing){const out=[];const cm=pricing?.cardmarket;if(cm){if(Number.isFinite(cm.trend))out.push({label:'Cardmarket trend',value:`${cm.unit||'EUR'} ${cm.trend.toFixed(2)}`});if(Number.isFinite(cm['trend-holo']))out.push({label:'Cardmarket holo',value:`${cm.unit||'EUR'} ${cm['trend-holo'].toFixed(2)}`});}const tcg=pricing?.tcgplayer;if(tcg){for(const [variant,values]of Object.entries(tcg)){if(values&&typeof values==='object'&&Number.isFinite(values.marketPrice))out.push({label:`TCGplayer ${variant}`,value:`${tcg.unit||'USD'} ${values.marketPrice.toFixed(2)}`});}}return out.slice(0,6);}
-
-function setCardStatus(id,status){state.cardStates[id]=state.cardStates[id]===status?'':status;if(!state.cardStates[id]){delete state.cardStates[id];delete state.cardCounts[id];delete state.cardPrintVariants[id];}else if(status==='owned'){state.cardCounts[id]=Math.max(1,Number(state.cardCounts[id])||1);}else{delete state.cardCounts[id];delete state.cardPrintVariants[id];}saveUser();renderCards();if(state.cardStates[id]==='owned')hydrateOwnedCard(id);if(collectionDialog.open){if(!state.cardStates[id])state.collectionCards=state.collectionCards.filter(card=>card.id!==id);renderCollectionSummary();populateCollectionFilters();renderCollectionCards();}}
-function adjustCardCount(id,change){if(state.cardStates[id]!=='owned')return;state.cardCounts[id]=Math.max(1,(Number(state.cardCounts[id])||1)+Number(change));saveUser();renderCards();if(collectionDialog.open){renderCollectionSummary();renderCollectionCards();}}
-function toggleFavorite(id){id=Number(id);state.favorites.has(id)?state.favorites.delete(id):state.favorites.add(id);saveUser();renderPokemon();}
-function cardmarketValue(card){const pricing=card.pricing?.cardmarket||{};const variant=selectedPrintVariant(card);if(variant==='holo'){const holo=[pricing['trend-holo'],pricing['avg30-holo'],pricing['avg7-holo'],pricing['avg1-holo'],pricing['low-holo']].find(value=>Number.isFinite(value)&&value>0);return holo??[pricing.trend,pricing.avg30,pricing.avg7,pricing.avg1,pricing.low].find(Number.isFinite);}if(variant==='reverse'){return[pricing['trend-reverse'],pricing['avg30-reverse'],pricing['avg7-reverse'],pricing['avg1-reverse']].find(Number.isFinite);}if(variant==='firstEdition')return[pricing['trend-first-edition'],pricing['avg30-first-edition']].find(Number.isFinite);return[pricing.trend,pricing.avg30,pricing.avg7,pricing.avg1,pricing.low].find(Number.isFinite);}
-function tcgplayerValue(card){const selected=selectedPrintVariant(card);const entry=Object.entries(card.pricing?.tcgplayer||{}).find(([key,value])=>value&&typeof value==='object'&&canonicalPrintVariant(key)===selected)?.[1];return Number.isFinite(entry?.marketPrice)?entry.marketPrice:undefined;}
-function money(value,currency){return new Intl.NumberFormat(state.settings.language==='da'?'da-DK':'en-US',{style:'currency',currency,minimumFractionDigits:2}).format(value);}
-function renderCollectionSummary(){const ownedIds=Object.keys(state.cardStates).filter(id=>state.cardStates[id]==='owned');const ownedCopies=ownedIds.reduce((total,id)=>total+Math.max(1,Number(state.cardCounts[id])||1),0);const wanted=Object.values(state.cardStates).filter(v=>v==='wanted').length;const loaded=new Map(state.collectionCards.map(card=>[card.id,card]));const allOwnedLoaded=ownedIds.every(id=>loaded.has(id));let cardmarketTotal=0;let tcgplayerTotal=0;let cardmarketPriced=0;let tcgplayerPriced=0;ownedIds.forEach(id=>{const card=loaded.get(id);const quantity=Math.max(1,Number(state.cardCounts[id])||1);const cm=card&&cardmarketValue(card);const tcg=card&&tcgplayerValue(card);if(Number.isFinite(cm)){cardmarketTotal+=cm*quantity;cardmarketPriced++;}if(Number.isFinite(tcg)){tcgplayerTotal+=tcg*quantity;tcgplayerPriced++;}});const cmText=!allOwnedLoaded?t('loading'):ownedIds.length&&!cardmarketPriced?'—':money(cardmarketTotal,'EUR');const tcgText=!allOwnedLoaded?t('loading'):ownedIds.length&&!tcgplayerPriced?'—':money(tcgplayerTotal,'USD');document.querySelector('#collectionStats').innerHTML=`<div><strong>${ownedCopies}</strong><span>${t('ownedCopies')} · ${ownedIds.length} ${t('unique')}</span></div><div><strong>${cmText}</strong><span>Cardmarket ${t('total')} · ${cardmarketPriced}/${ownedIds.length} ${t('priced')}</span></div><div><strong>${tcgText}</strong><span>TCGplayer ${t('total')} · ${tcgplayerPriced}/${ownedIds.length} ${t('priced')}</span></div><div><strong>${wanted}</strong><span>${t('wanted')} ${state.settings.language==='da'?'kort':'cards'}</span></div><div><strong>${state.favorites.size}</strong><span>${t('favoritePokemon')}</span></div>`;document.querySelector('#favoriteList').innerHTML=[...state.favorites].map(id=>{const p=state.pokemon.find(x=>x.id===id);return p?`<button data-pokemon="${p.name}"><img src="${ART}/${id}.png" alt="">${titleCase(p.name)}</button>`:'';}).join('')||`<p>${t('noFavorites')}</p>`;}
-function prepareCollectionCard(card){return{...card,variant:card.suffix||card.variant||deriveVariant(card.name),series:card.series||card.set?.serie?.name||'Other series'};}
-function cardPokedexNumber(card){if(Number.isFinite(card.pokedexNumber))return card.pokedexNumber;const haystack=` ${normalizeCardName(card.name)} `;const matches=state.pokemon.filter(pokemon=>haystack.includes(` ${normalizeCardName(tcgNameOverrides[pokemon.name]||titleCase(pokemon.name))} `)).map(pokemon=>pokemon.id);card.pokedexNumber=matches.length?Math.min(...matches):Number.MAX_SAFE_INTEGER;return card.pokedexNumber;}
-function collectionOptions(key){return[...new Set(state.collectionCards.map(card=>key==='set'?card.set?.name:card[key]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));}
-function collectionSelect(key,label,allLabel,values){return`<select data-collection-filter="${key}" aria-label="${label}"><option value="all">${allLabel}</option>${values.map(value=>`<option value="${escapeHtml(value)}" ${state.collectionFilters[key]===value?'selected':''}>${escapeHtml(value)}</option>`).join('')}</select>`;}
-function populateCollectionFilters(){const available={series:collectionOptions('series'),set:collectionOptions('set'),rarity:collectionOptions('rarity'),variant:collectionOptions('variant'),illustrator:collectionOptions('illustrator')};Object.entries(available).forEach(([key,values])=>{if(state.collectionFilters[key]!=='all'&&!values.includes(state.collectionFilters[key]))state.collectionFilters[key]='all';});collectionFilters.innerHTML=`<select data-collection-filter="status" aria-label="${t('allStatuses')}"><option value="all">${t('allStatusesCollection')}</option><option value="owned" ${state.collectionFilters.status==='owned'?'selected':''}>${t('owned')}</option><option value="wanted" ${state.collectionFilters.status==='wanted'?'selected':''}>${t('wanted')}</option></select>${collectionSelect('series',t('series'),t('allSeries'),available.series)}${collectionSelect('set',t('set'),t('allSets'),available.set)}${collectionSelect('rarity',t('rarity'),t('allRarities'),available.rarity)}${collectionSelect('variant',t('variant'),t('allVariants'),available.variant)}${collectionSelect('illustrator',t('illustrator'),t('allArtists'),available.illustrator)}<select data-collection-filter="sort" aria-label="${t('sortCards')}"><option value="name">${t('nameOrder')}</option><option value="pokedex" ${state.collectionFilters.sort==='pokedex'?'selected':''}>${t('pokedexSort')}</option><option value="setNumber" ${state.collectionFilters.sort==='setNumber'?'selected':''}>${t('setNumberSort')}</option><option value="cardmarket" ${state.collectionFilters.sort==='cardmarket'?'selected':''}>${t('cardmarketSort')}</option><option value="tcgplayer" ${state.collectionFilters.sort==='tcgplayer'?'selected':''}>${t('tcgplayerSort')}</option></select>`;collectionFilters.querySelectorAll('select').forEach(select=>select.addEventListener('change',event=>{state.collectionFilters[event.target.dataset.collectionFilter]=event.target.value;renderCollectionCards();}));}
-function filteredCollectionCards(){const query=state.collectionFilters.query.trim().toLowerCase();const cards=state.collectionCards.filter(card=>{const status=state.cardStates[card.id];const haystack=[card.name,card.id,card.localId,card.set?.name,card.series,card.rarity,card.variant,card.illustrator].filter(Boolean).join(' ').toLowerCase();return(!query||haystack.includes(query))&&(state.collectionFilters.status==='all'||status===state.collectionFilters.status)&&(state.collectionFilters.series==='all'||card.series===state.collectionFilters.series)&&(state.collectionFilters.set==='all'||card.set?.name===state.collectionFilters.set)&&(state.collectionFilters.rarity==='all'||card.rarity===state.collectionFilters.rarity)&&(state.collectionFilters.variant==='all'||card.variant===state.collectionFilters.variant)&&(state.collectionFilters.illustrator==='all'||card.illustrator===state.collectionFilters.illustrator);});const valueFor=state.collectionFilters.sort==='cardmarket'?cardmarketValue:state.collectionFilters.sort==='tcgplayer'?tcgplayerValue:null;if(valueFor)return cards.sort((a,b)=>(valueFor(b)??-1)-(valueFor(a)??-1)||a.name.localeCompare(b.name));if(state.collectionFilters.sort==='pokedex')return cards.sort((a,b)=>cardPokedexNumber(a)-cardPokedexNumber(b)||a.name.localeCompare(b.name)||String(a.localId).localeCompare(String(b.localId),undefined,{numeric:true}));if(state.collectionFilters.sort==='setNumber')return cards.sort((a,b)=>String(a.localId||'').localeCompare(String(b.localId||''),undefined,{numeric:true,sensitivity:'base'})||String(a.set?.name||'').localeCompare(String(b.set?.name||''))||a.name.localeCompare(b.name));return cards.sort((a,b)=>a.name.localeCompare(b.name)||a.id.localeCompare(b.id));}
-function renderCollectionCards(){const cards=filteredCollectionCards();document.querySelector('#collectionResultCount').textContent=`${cards.length} ${state.settings.language==='da'?'kort':`card${cards.length===1?'':'s'}`}`;if(!Object.keys(state.cardStates).length){collectionCardGrid.innerHTML=`<div class="collection-empty">${t('markCards')}</div>`;return;}if(!cards.length){collectionCardGrid.innerHTML=`<div class="collection-empty">${t('noSavedMatch')}</div>`;return;}collectionCardGrid.innerHTML=cards.map(card=>{const status=state.cardStates[card.id];const cm=cardmarketValue(card);const tcg=tcgplayerValue(card);const dex=cardPokedexNumber(card);return`<article class="collection-card" data-card-id="${card.id}"><button class="collection-card-open"><img loading="lazy" src="${cardImageUrl(card,'low')}" alt="${escapeHtml(card.name)}"><strong>${escapeHtml(card.name)}</strong><small>${Number.isFinite(dex)&&dex<Number.MAX_SAFE_INTEGER?`${formatId(dex)} · `:''}${escapeHtml(card.set?.name||card.series||card.id)} · #${escapeHtml(card.localId||'—')}</small><small>${escapeHtml(card.variant)}</small><span class="collection-values"><i>CM ${Number.isFinite(cm)?money(cm,'EUR'):'—'}</i><i>TCG ${Number.isFinite(tcg)?money(tcg,'USD'):'—'}</i></span></button><span class="card-status"><button data-status="owned" class="${status==='owned'?'active':''}">✓ ${t('owned')}</button><button data-status="wanted" class="${status==='wanted'?'active':''}">♥ ${t('wanted')}</button></span>${cardPrintVariantControl(card,status)}${cardQuantity(card.id,status)}</article>`;}).join('');}
-async function showCollection(){renderCollectionSummary();if(!collectionDialog.open)collectionDialog.showModal();collectionSearch.value=state.collectionFilters.query;const request=++state.collectionRequest;const ids=Object.keys(state.cardStates);const previous=new Map(state.collectionCards.map(card=>[card.id,card]));state.collectionCards=ids.map(id=>previous.get(id)).filter(Boolean);populateCollectionFilters();renderCollectionCards();if(!ids.length){renderCollectionSummary();return;}if(!state.collectionCards.length)collectionCardGrid.innerHTML=`<div class="collection-empty"><div class="spinner"></div>${t('loadingSaved')}</div>`;const queue=[...ids];const refreshed=new Map();const workers=Array.from({length:6},async()=>{while(queue.length){const id=queue.shift();try{refreshed.set(id,prepareCollectionCard(await getJson(`${TCG_API}/cards/${encodeURIComponent(id)}`,true,true)));}catch{}}});await Promise.all(workers);if(request!==state.collectionRequest)return;state.collectionCards=ids.filter(id=>state.cardStates[id]).map(id=>refreshed.get(id)||previous.get(id)).filter(Boolean);renderCollectionSummary();populateCollectionFilters();renderCollectionCards();}
-function exportCollection(){const blob=new Blob([JSON.stringify({version:3,exportedAt:new Date().toISOString(),favorites:[...state.favorites],cardStates:state.cardStates,cardCounts:state.cardCounts,cardPrintVariants:state.cardPrintVariants,settings:state.settings},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='cardedex-collection-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
-async function importCollection(file){try{const data=JSON.parse(await file.text());state.favorites=new Set(data.favorites||[]);state.cardStates=data.cardStates||{};state.cardCounts=data.cardCounts||{};state.cardPrintVariants=data.cardPrintVariants||{};state.settings={...state.settings,...data.settings};saveUser();applySettings();renderPokemon();showCollection();}catch{alert(t('invalidBackup'));}}
-function applySettings(){
-  document.body.classList.toggle('dark',state.settings.dark);document.querySelector('#themeToggle').textContent=state.settings.dark?'☀':'☾';document.querySelector('#langToggle').textContent=state.settings.language==='en'?'DA':'EN';document.documentElement.lang=state.settings.language;document.title=state.settings.language==='da'?'Cardédex — Pokémon og kort':'Cardédex — Pokémon & cards';
-  const setText=(selector,key)=>{const node=document.querySelector(selector);if(node)node.textContent=t(key);};const setHtml=(selector,key)=>{const node=document.querySelector(selector);if(node)node.innerHTML=t(key);};const setLabel=(selector,key)=>{const node=document.querySelector(selector);if(node){node.setAttribute('aria-label',t(key));node.title=t(key);}};
-  setText('nav a[href="#about"]','about');setText('.eyebrow','completeCompanion');document.querySelector('.eyebrow').insertAdjacentHTML('afterbegin','<span></span>');setHtml('.hero h1','heroTitle');setText('.hero>p','heroDescription');setText('.quick-picks>span','popular');setText('.catalog-heading .section-kicker','nationalPokedex');setText('#catalogTitle','choosePokemon');setText('.result-count span','pokemonFound');setText('#generationFilters [data-gen="all"]','allGenerations');setText('.pocket-toggle span','hidePocket');hidePocketToggle.classList.toggle('active',state.settings.hidePocket);hidePocketToggle.setAttribute('aria-pressed',String(state.settings.hidePocket));
-  document.querySelectorAll('.catalog-select>span').forEach((node,index)=>node.textContent=t(['series','set','rarity','order'][index]));setText('.empty-state h3','noPokemon');setText('.empty-state p','tryAnother');loadMore.childNodes[0].textContent=`${t('loadMore')} `;setText('.about>span','builtForCollectors');setHtml('.about h2','aboutTitle');setText('.about p','aboutDescription');setText('footer>p','footer');
-  setText('.collection-button span','myCollection');setText('.collection-content>.section-kicker','savedDevice');setText('.collection-content>h2','myCollection');setText('.collection-intro','collectionPrivacy');setText('#exportCollection','exportBackup');setText('#importCollection','importBackup');setText('.collection-browser-heading .section-kicker','cardChecklist');setText('#collectionCardsTitle','savedCards');setText('.favorite-heading .section-kicker','favoritePokemon');template.content.querySelector('.card-copy>span').innerHTML=`${t('viewCards')} <i>↗</i>`;
-  searchInput.placeholder=t('searchPokemon');collectionSearch.placeholder=t('searchCollection');mainArtistInput.placeholder=t('searchIllustrator');if(!state.artist)artistStatus.textContent=t('artistPrompt');
-  setLabel('#langToggle','switchLanguage');setLabel('#themeToggle','toggleDark');setLabel('#generationFilters','filterGeneration');setLabel('.catalog-dropdowns','filterRelease');setLabel('#mainArtistInput','filterIllustrator');setLabel('#clearArtist','clearIllustrator');setLabel('#drawerClose','closeDetails');setLabel('#lightboxClose','closePreview');setLabel('#collectionClose','closeCollection');
-  const pokedexOption=mainOrderFilter.querySelector('[value="pokedex"]');if(pokedexOption)pokedexOption.textContent=t('pokedexNumber');if(mainSeriesFilter.options[0])mainSeriesFilter.options[0].textContent=t('allSeries');if(mainSetFilter.options[0]&&!mainSetFilter.disabled)mainSetFilter.options[0].textContent=t('allSets');if(mainRarityFilter.options[0])mainRarityFilter.options[0].textContent=t('allRarities');updateMainOrderControl();
+function mapArtistCards(cards) {
+  const counts = new Map();
+  cards.forEach((card) =>
+    pokemonIdsForCard(card).forEach((id) =>
+      counts.set(id, (counts.get(id) || 0) + 1)
+    )
+  );
+  return counts;
 }
-function closeDrawer(updateHistory=true){drawer.classList.remove('open');backdrop.classList.remove('visible');drawer.setAttribute('aria-hidden','true');document.body.classList.remove('drawer-open');state.current=null;setTimeout(()=>{backdrop.hidden=true;},300);if(updateHistory&&location.search)history.pushState({},'',location.pathname);}
+function showArtistSuggestions(value = mainArtistInput.value) {
+  const query = value.trim().toLowerCase();
+  if (!state.illustrators.length) {
+    artistSuggestions.innerHTML = `<span class="artist-suggestion-note">${
+      t("loadingArtists")
+    }</span>`;
+  } else {
+    const matches = state.illustrators.filter((name) =>
+      !query || name.toLowerCase().includes(query)
+    ).sort((a, b) => {
+      const aStarts = artistSortKey(a).startsWith(query);
+      const bStarts = artistSortKey(b).startsWith(query);
+      return Number(bStarts) - Number(aStarts) || compareArtists(a, b);
+    }).slice(0, 80);
+    artistSuggestions.innerHTML = matches.length
+      ? matches.map((name) =>
+        `<button type="button" role="option" data-artist="${
+          escapeHtml(name)
+        }">${escapeHtml(name)}</button>`
+      ).join("")
+      : `<span class="artist-suggestion-note">${t("noArtists")}</span>`;
+  }
+  artistSuggestions.hidden = false;
+  mainArtistInput.setAttribute("aria-expanded", "true");
+}
+function hideArtistSuggestions() {
+  artistSuggestions.hidden = true;
+  mainArtistInput.setAttribute("aria-expanded", "false");
+}
+async function selectMainArtist(value) {
+  const artist = state.illustrators.find((name) =>
+    name.toLowerCase() === value.trim().toLowerCase()
+  );
+  if (!artist) {
+    if (value.trim()) artistStatus.textContent = t("chooseSuggestion");
+    return;
+  }
+  hideArtistSuggestions();
+  mainArtistInput.value = artist;
+  clearArtist.hidden = false;
+  if (
+    state.artist === artist &&
+    (state.artistLoading || state.artistPokemonIds?.size)
+  ) {
+    const count = state.artistCardCounts.size;
+    artistStatus.textContent = state.settings.language === "da"
+      ? `${count} Pokémon illustreret af ${artist}`
+      : `${count} Pokémon illustrated by ${artist}`;
+    return;
+  }
+  const request = ++state.artistRequest;
+  state.artist = artist;
+  state.artistLoading = true;
+  state.artistPokemonIds = new Set();
+  state.artistCardIds = new Set();
+  state.artistCardCounts = new Map();
+  artistStatus.textContent = state.settings.language === "da"
+    ? `Indlæser kort illustreret af ${artist}…`
+    : `Loading cards illustrated by ${artist}…`;
+  state.generation = "all";
+  document.querySelectorAll("#generationFilters button").forEach((button) =>
+    button.classList.toggle("active", button.dataset.gen === "all")
+  );
+  applyFilters();
+  try {
+    const cards = (await getJson(
+      `${TCG_API}/cards?illustrator=${encodeURIComponent(`eq:${artist}`)}`,
+    )).filter(cardIsVisible);
+    if (request !== state.artistRequest) return;
+    const counts = mapArtistCards(cards);
+    state.artistCardIds = new Set(cards.map((card) => card.id));
+    state.artistCardCounts = counts;
+    state.artistPokemonIds = new Set(counts.keys());
+    const generations = new Set(
+      [...counts.keys()].map(generationFor).filter(Boolean),
+    );
+    artistStatus.textContent = state.settings.language === "da"
+      ? `${counts.size} Pokémon · ${cards.length} kort · ${generations.size} generation${
+        generations.size === 1 ? "" : "er"
+      }`
+      : `${counts.size} Pokémon · ${cards.length} cards · ${generations.size} generation${
+        generations.size === 1 ? "" : "s"
+      }`;
+    applyFilters();
+  } catch {
+    if (request === state.artistRequest) {
+      artistStatus.textContent = state.settings.language === "da"
+        ? "Illustratorens kort kunne ikke indlæses."
+        : "Could not load this illustrator’s cards.";
+    }
+  } finally {
+    if (request === state.artistRequest) state.artistLoading = false;
+  }
+}
+function clearMainArtist() {
+  state.artistRequest++;
+  state.artist = null;
+  state.artistLoading = false;
+  state.artistPokemonIds = null;
+  state.artistCardIds = null;
+  state.artistCardCounts = new Map();
+  mainArtistInput.value = "";
+  clearArtist.hidden = true;
+  artistStatus.textContent = t("artistPrompt");
+  applyFilters();
+}
 
-grid.addEventListener('click',e=>{const star=e.target.closest('.favorite-star');if(star){e.stopPropagation();toggleFavorite(star.dataset.id);return;}const card=e.target.closest('.pokemon-card');if(card)openPokemon(card.dataset.name);});
-loadMore.addEventListener('click',()=>{state.visible+=PAGE_SIZE;renderPokemon();});
-document.querySelector('#generationFilters').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;document.querySelectorAll('#generationFilters button').forEach(x=>x.classList.remove('active'));b.classList.add('active');state.generation=b.dataset.gen;applyFilters();});
-mainSeriesFilter.addEventListener('change',event=>{state.catalogSeries=event.target.value;state.catalogSet='all';renderMainSetOptions();applyMainCardFilter();});mainSetFilter.addEventListener('change',event=>{state.catalogSet=event.target.value;const set=state.cardSets.find(item=>item.id===state.catalogSet);if(set&&state.catalogSeries!==set.seriesId){state.catalogSeries=set.seriesId;mainSeriesFilter.value=set.seriesId;renderMainSetOptions();mainSetFilter.value=set.id;}applyMainCardFilter();});
-mainRarityFilter.addEventListener('change',event=>{state.catalogRarity=event.target.value;applyMainRarityFilter();});
-mainOrderFilter.addEventListener('change',event=>{state.mainOrder=event.target.value;applyFilters();});
-hidePocketToggle.addEventListener('click',()=>{const selectedSet=state.cardSets.find(set=>set.id===state.catalogSet);const hidePocket=!state.settings.hidePocket;const resetRelease=hidePocket&&(state.catalogSeries===POCKET_SERIES_ID||isPocketSet(selectedSet));state.settings.hidePocket=hidePocket;hidePocketToggle.classList.toggle('active',hidePocket);hidePocketToggle.setAttribute('aria-pressed',String(hidePocket));saveUser();if(resetRelease){state.catalogSeries='all';state.catalogSet='all';}state.cardFilters.series='all';state.cardFilters.set='all';renderMainSeriesOptions();renderMainSetOptions();if(resetRelease)applyMainCardFilter();if(state.artist){const artist=state.artist;state.artist=null;state.artistPokemonIds=null;selectMainArtist(artist);}if(state.catalogRarity!=='all')applyMainRarityFilter();renderCardFilters();renderCards();});
-searchInput.addEventListener('input',e=>{state.query=e.target.value;applyFilters();renderSearchSuggestions();});searchInput.addEventListener('focus',()=>{if(searchInput.value.trim())renderSearchSuggestions();});searchInput.addEventListener('blur',()=>setTimeout(hideSearchSuggestions,140));searchInput.addEventListener('keydown',event=>{const options=[...searchSuggestions.querySelectorAll('[data-pokemon]')];if(event.key==='ArrowDown'&&options.length){event.preventDefault();highlightSearchSuggestion(searchSuggestionIndex+1);}else if(event.key==='ArrowUp'&&options.length){event.preventDefault();highlightSearchSuggestion(searchSuggestionIndex-1);}else if(event.key==='Enter'&&!searchSuggestions.hidden&&options.length){event.preventDefault();choosePokemonSuggestion(options[Math.max(0,searchSuggestionIndex)].dataset.pokemon);}else if(event.key==='Escape')hideSearchSuggestions();});searchSuggestions.addEventListener('pointerdown',event=>{const option=event.target.closest('[data-pokemon]');if(!option)return;event.preventDefault();choosePokemonSuggestion(option.dataset.pokemon);});document.querySelector('#searchForm').addEventListener('submit',e=>e.preventDefault());
-mainArtistInput.addEventListener('focus',()=>showArtistSuggestions());mainArtistInput.addEventListener('click',()=>showArtistSuggestions());mainArtistInput.addEventListener('input',e=>{const value=e.target.value;showArtistSuggestions(value);if(!value.trim()){if(state.artist)clearMainArtist();showArtistSuggestions();return;}const exact=state.illustrators.find(name=>name.toLowerCase()===value.trim().toLowerCase());if(exact)selectMainArtist(exact);});mainArtistInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();selectMainArtist(e.currentTarget.value);}if(e.key==='Escape')hideArtistSuggestions();});mainArtistInput.addEventListener('blur',()=>setTimeout(hideArtistSuggestions,120));artistSuggestions.addEventListener('mousedown',e=>{const option=e.target.closest('[data-artist]');if(!option)return;e.preventDefault();selectMainArtist(option.dataset.artist);});clearArtist.addEventListener('click',()=>{clearMainArtist();hideArtistSuggestions();});
-document.querySelector('.quick-picks').addEventListener('click',e=>{if(!e.target.dataset.search)return;searchInput.value=e.target.dataset.search;state.query=e.target.dataset.search;applyFilters();document.querySelector('.catalog').scrollIntoView({behavior:'smooth'});});
-drawerContent.addEventListener('click',e=>{const evo=e.target.closest('[data-evolution]');if(evo){openPokemon(evo.dataset.evolution);return;}const quantity=e.target.closest('[data-count]');if(quantity){adjustCardCount(quantity.closest('.tcg-card').dataset.cardId,quantity.dataset.count);return;}const status=e.target.closest('[data-status]');if(status){setCardStatus(status.closest('.tcg-card').dataset.cardId,status.dataset.status);return;}const open=e.target.closest('.tcg-open');if(open){const card=state.cards.find(c=>c.id===open.closest('.tcg-card').dataset.cardId);if(card)openCard(card);}});
-drawerContent.addEventListener('change',event=>{if(event.target.matches('[data-print-variant]'))setPrintVariant(event.target.closest('.tcg-card').dataset.cardId,event.target.value);});
-document.querySelector('#drawerClose').addEventListener('click',()=>closeDrawer());backdrop.addEventListener('click',()=>closeDrawer());document.querySelector('#lightboxClose').addEventListener('click',()=>cardDialog.close());cardDialog.addEventListener('click',e=>{if(e.target===e.currentTarget){e.currentTarget.close();return;}const cardId=cardDialog.dataset.cardId;const card=cardDialog.cardData||state.cards.find(value=>value.id===cardId)||state.collectionCards.find(value=>value.id===cardId);if(!card)return;const status=e.target.closest('[data-detail-status]');if(status){setCardStatus(cardId,status.dataset.detailStatus);openCard(card);return;}const quantity=e.target.closest('[data-count]');if(quantity){adjustCardCount(cardId,quantity.dataset.count);openCard(card);}});cardDialog.addEventListener('change',event=>{if(!event.target.matches('[data-print-variant]'))return;const cardId=cardDialog.dataset.cardId;const card=cardDialog.cardData||state.cards.find(value=>value.id===cardId)||state.collectionCards.find(value=>value.id===cardId);setPrintVariant(cardId,event.target.value);if(card)openCard(card);});
-document.querySelector('#collectionOpen').addEventListener('click',showCollection);document.querySelector('#collectionClose').addEventListener('click',()=>collectionDialog.close());document.querySelector('#exportCollection').addEventListener('click',exportCollection);document.querySelector('#importCollection').addEventListener('click',()=>document.querySelector('#importFile').click());document.querySelector('#importFile').addEventListener('change',e=>{if(e.target.files[0])importCollection(e.target.files[0]);});document.querySelector('#favoriteList').addEventListener('click',e=>{const b=e.target.closest('[data-pokemon]');if(b){collectionDialog.close();openPokemon(b.dataset.pokemon);}});
-collectionSearch.addEventListener('input',event=>{state.collectionFilters.query=event.target.value;renderCollectionCards();});collectionCardGrid.addEventListener('click',event=>{const item=event.target.closest('.collection-card');if(!item)return;const quantity=event.target.closest('[data-count]');if(quantity){adjustCardCount(item.dataset.cardId,quantity.dataset.count);return;}const status=event.target.closest('[data-status]');if(status){setCardStatus(item.dataset.cardId,status.dataset.status);return;}const open=event.target.closest('.collection-card-open');if(open){const card=state.collectionCards.find(value=>value.id===item.dataset.cardId);if(card)openCard(card);}});
-collectionCardGrid.addEventListener('change',event=>{if(event.target.matches('[data-print-variant]'))setPrintVariant(event.target.closest('.collection-card').dataset.cardId,event.target.value);});
-document.querySelector('#themeToggle').addEventListener('click',()=>{state.settings.dark=!state.settings.dark;saveUser();applySettings();});document.querySelector('#langToggle').addEventListener('click',()=>{state.settings.language=state.settings.language==='en'?'da':'en';saveUser();applySettings();renderPokemon();if(state.artist)selectMainArtist(state.artist);if(state.current)openPokemon(state.current.name,false);if(collectionDialog.open){renderCollectionSummary();populateCollectionFilters();renderCollectionCards();}});
-document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();searchInput.focus();}if(e.key==='Escape'&&drawer.classList.contains('open'))closeDrawer();});window.addEventListener('popstate',()=>{const slug=new URLSearchParams(location.search).get('pokemon');if(slug)openPokemon(slug,false);else closeDrawer(false);});
+async function openPokemon(name, updateHistory = true) {
+  const basic = state.pokemon.find((p) =>
+    p.name === name || String(p.id) === String(name)
+  );
+  if (!basic) return;
+  state.current = basic;
+  document.body.classList.add("drawer-open");
+  backdrop.hidden = false;
+  requestAnimationFrame(() => {
+    backdrop.classList.add("visible");
+    drawer.classList.add("open");
+  });
+  drawer.setAttribute("aria-hidden", "false");
+  drawerContent.innerHTML = detailSkeleton(basic);
+  if (updateHistory) {
+    history.pushState({ pokemon: basic.name }, "", `?pokemon=${basic.name}`);
+  }
+  try {
+    const [pokemon, species] = await Promise.all([
+      getJson(`${POKE_API}/pokemon/${basic.id}`),
+      getJson(`${POKE_API}/pokemon-species/${basic.id}`),
+    ]);
+    const evolution = species.evolution_chain?.url
+      ? await getJson(species.evolution_chain.url)
+      : null;
+    if (state.current?.id !== basic.id) return;
+    renderDetails(pokemon, species, evolution);
+    loadCards(basic.name);
+  } catch {
+    drawerContent.innerHTML = state.settings.language === "da"
+      ? `<div class="cards-message"><strong>${
+        titleCase(basic.name)
+      } kunne ikke indlæses.</strong><br>Opret forbindelse igen for at gemme den til offlinebrug.</div>`
+      : `<div class="cards-message"><strong>Couldn't load ${
+        titleCase(basic.name)
+      }.</strong><br>Reconnect once to save it for offline use.</div>`;
+  }
+}
+function detailSkeleton(p) {
+  return `<section class="detail-hero" style="--detailTint:${
+    tintFor(p.id)
+  }"><div class="detail-art"><img src="${ART}/${p.id}.png" alt="${
+    titleCase(p.name)
+  }"></div><div class="detail-info"><span class="detail-number">${
+    formatId(p.id)
+  }</span><h2 id="drawerTitle">${titleCase(p.name)}</h2><p class="flavor">${
+    t("loadingPokemon")
+  }</p></div></section><section class="cards-section"><div class="cards-message"><div class="spinner"></div>${
+    t("openingArchive")
+  }</div></section>`;
+}
+function evolutionNames(chain) {
+  const names = [];
+  function walk(node) {
+    if (!node) return;
+    names.push(node.species.name);
+    node.evolves_to.forEach(walk);
+  }
+  walk(chain?.chain);
+  return names;
+}
+function statBars(pokemon) {
+  const da = {
+    hp: "HP",
+    attack: "Angreb",
+    defense: "Forsvar",
+    "special-attack": "Specialangreb",
+    "special-defense": "Specialforsvar",
+    speed: "Hastighed",
+  };
+  return pokemon.stats.map((s) =>
+    `<div class="stat-row"><span>${
+      state.settings.language === "da"
+        ? (da[s.stat.name] || titleCase(s.stat.name))
+        : titleCase(s.stat.name)
+    }</span><b>${s.base_stat}</b><span class="stat-track"><i style="width:${
+      Math.min(100, s.base_stat / 255 * 100)
+    }%"></i></span></div>`
+  ).join("");
+}
+function renderDetails(pokemon, species, evolution) {
+  const lang = "en";
+  const description =
+    species.flavor_text_entries.find((e) => e.language.name === lang)
+      ?.flavor_text.replace(/[\n\f]/g, " ") ||
+    (state.settings.language === "da"
+      ? "Ingen beskrivelse tilgængelig."
+      : "No description available.");
+  const genus = species.genera.find((g) => g.language.name === lang)?.genus ||
+    "Pokémon";
+  const typeDa = {
+    normal: "normal",
+    fire: "ild",
+    water: "vand",
+    electric: "elektrisk",
+    grass: "græs",
+    ice: "is",
+    fighting: "kamp",
+    poison: "gift",
+    ground: "jord",
+    flying: "flyvende",
+    psychic: "psykisk",
+    bug: "insekt",
+    rock: "sten",
+    ghost: "spøgelse",
+    dragon: "drage",
+    dark: "mørke",
+    steel: "stål",
+    fairy: "fe",
+  };
+  const types = pokemon.types.map((type) =>
+    `<span class="type-pill" style="--typeColor:${
+      typeColors[type.type.name] || "#65756c"
+    }">${
+      state.settings.language === "da"
+        ? (typeDa[type.type.name] || type.type.name)
+        : type.type.name
+    }</span>`
+  ).join("");
+  const abilities = pokemon.abilities.map((a) => titleCase(a.ability.name))
+    .join(", ");
+  const shiny = pokemon.sprites.other["official-artwork"].front_shiny;
+  const art = state.settings.shiny && shiny
+    ? shiny
+    : (pokemon.sprites.other["official-artwork"].front_default ||
+      `${ART}/${pokemon.id}.png`);
+  const fav = state.favorites.has(pokemon.id);
+  const evo = evolutionNames(evolution).map((n) =>
+    `<button data-evolution="${n}">${titleCase(n)}</button>`
+  ).join("");
+  drawerContent.innerHTML = `<section class="detail-hero" style="--detailTint:${
+    tintFor(pokemon.id)
+  }"><div class="detail-art"><img id="pokemonArtwork" src="${art}" data-normal="${
+    pokemon.sprites.other["official-artwork"].front_default
+  }" data-shiny="${shiny || ""}" alt="${
+    titleCase(pokemon.name)
+  }"></div><div class="detail-info"><span class="detail-number">${
+    formatId(pokemon.id)
+  } · ${genus}</span><h2 id="drawerTitle">${
+    titleCase(pokemon.name)
+  }</h2><div class="types">${types}</div><div class="detail-tools"><button id="detailFavorite" class="${
+    fav ? "active" : ""
+  }">♥ ${t("favorite")}</button><button id="shinyToggle" class="${
+    state.settings.shiny ? "active" : ""
+  }" ${shiny ? "" : "disabled"}>✦ ${
+    t("shiny")
+  }</button></div><p class="flavor">${description}</p><div class="facts"><div class="fact"><span>${
+    t("height")
+  }</span><strong>${
+    (pokemon.height / 10).toFixed(1)
+  } m</strong></div><div class="fact"><span>${t("weight")}</span><strong>${
+    (pokemon.weight / 10).toFixed(1)
+  } kg</strong></div><div class="fact"><span>${
+    t("abilities")
+  }</span><strong>${abilities}</strong></div></div><div class="stat-bars"><span class="section-kicker">${
+    t("stats")
+  }</span>${
+    statBars(pokemon)
+  }</div><div class="evolution-chain"><span class="section-kicker">${
+    t("evolution")
+  }</span>${evo}</div></div></section><section class="cards-section"><div class="cards-header"><div><span class="section-kicker">${
+    t("archive")
+  }</span><h3>${
+    t("cardsFeaturing", { name: titleCase(pokemon.name) })
+  }</h3><p id="cardsCount">${
+    t("searchingSets")
+  }</p><div class="collection-progress"><i id="collectionProgress" style="width:0"></i></div></div><select class="cards-sort" id="cardsSort"><option value="archive">${
+    t("archiveOrder")
+  }</option><option value="reverse">${
+    t("reverseOrder")
+  }</option><option value="name">${
+    t("nameOrder")
+  }</option></select></div><div class="card-filterbar" id="cardFilterbar"></div><div class="tcg-grid" id="tcgGrid"><div class="cards-message"><div class="spinner"></div>${
+    t("lookingArchive")
+  }</div></div></section>`;
+  document.querySelector("#cardsSort").addEventListener("change", (e) => {
+    state.sort = e.target.value;
+    renderCards();
+  });
+  document.querySelector("#detailFavorite").addEventListener("click", () => {
+    toggleFavorite(pokemon.id);
+    renderDetails(pokemon, species, evolution);
+    if (state.cards.length) renderCards();
+  });
+  document.querySelector("#shinyToggle").addEventListener("click", () => {
+    state.settings.shiny = !state.settings.shiny;
+    saveUser();
+    renderDetails(pokemon, species, evolution);
+    if (state.cards.length) renderCards();
+  });
+}
+
+function deriveVariant(name) {
+  const tests = [
+    ["V-UNION", /V-UNION/i],
+    ["VMAX", /\bVMAX\b/i],
+    ["VSTAR", /\bVSTAR\b/i],
+    ["LV.X", /LV\.X/i],
+    ["BREAK", /\bBREAK\b/i],
+    ["TAG TEAM", /\bTAG TEAM\b/i],
+    ["Radiant", /^Radiant\b/i],
+    ["Prism Star", /◇|Prism Star/i],
+    ["GX", /\bGX\b/i],
+    ["EX", /\bEX\b/],
+    ["ex", /\bex\b/],
+    ["V", /\bV\b/],
+    ["δ Delta", /δ|Delta Species/i],
+  ];
+  return tests.find(([, re]) => re.test(name))?.[0] || "Standard";
+}
+function setCode(id) {
+  return id.slice(0, id.lastIndexOf("-"));
+}
+function cardImageUrl(card, size = "low") {
+  return cardImageOverrides[card.id] ||
+    (card.image ? `${card.image}/${size}.webp` : "");
+}
+async function loadCards(name) {
+  try {
+    const printedName = tcgNameOverrides[name] || titleCase(name);
+    const cards = await getJson(
+      `${TCG_API}/cards?name=${encodeURIComponent(printedName)}`,
+    );
+    if (state.current?.name !== name) return;
+    const escaped = printedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const exact = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
+    state.cards = cards.filter((c) =>
+      (c.image || cardImageOverrides[c.id]) && exact.test(c.name)
+    ).map((c) => ({
+      ...c,
+      variant: deriveVariant(c.name),
+      setCode: setCode(c.id),
+    }));
+    state.advancedLoaded = false;
+    state.cardFilters = {
+      variant: "all",
+      status: "all",
+      series: "all",
+      set: "all",
+      rarity: "all",
+      illustrator: "all",
+    };
+    renderCardFilters();
+    renderCards();
+    loadSetMetadata(state.cards, name);
+    loadAdvancedMetadata();
+  } catch {
+    const el = document.querySelector("#tcgGrid");
+    if (el) {
+      el.innerHTML = `<div class="cards-message"><strong>${
+        t("unavailableCards")
+      }</strong><br>${t("viewedOffline")}</div>`;
+    }
+  }
+}
+async function loadSetMetadata(cards, pokemonName) {
+  const codes = [...new Set(cards.map((c) => c.setCode))];
+  const queue = [...codes];
+  const setMap = new Map();
+  const workers = Array.from({ length: 6 }, async () => {
+    while (queue.length) {
+      const code = queue.shift();
+      try {
+        setMap.set(
+          code,
+          await getJson(`${TCG_API}/sets/${encodeURIComponent(code)}`),
+        );
+      } catch {}
+    }
+  });
+  await Promise.all(workers);
+  if (state.cards !== cards || state.current?.name !== pokemonName) return;
+  cards.forEach((card) => {
+    const set = setMap.get(card.setCode);
+    if (set) {
+      card.set = set;
+      card.series = set.serie?.name || "Other";
+      card.seriesId = set.serie?.id;
+    }
+  });
+  renderCardFilters();
+  renderCards();
+}
+function renderCardFilters() {
+  const bar = document.querySelector("#cardFilterbar");
+  if (!bar) return;
+  const visibleCards = state.cards.filter(cardIsVisible);
+  const variants = [...new Set(visibleCards.map((c) => c.variant))].sort();
+  const sets = [
+    ...new Set(visibleCards.map((c) => c.set?.name).filter(Boolean)),
+  ].sort();
+  const series = [...new Set(visibleCards.map((c) => c.series).filter(Boolean))]
+    .sort();
+  const rarities = [
+    ...new Set(visibleCards.map((c) => c.rarity).filter(Boolean)),
+  ].sort();
+  const illustrators = [
+    ...new Set(visibleCards.map((c) => c.illustrator).filter(Boolean)),
+  ].sort((a, b) => a.localeCompare(b));
+  bar.innerHTML = `<select data-filter="variant"><option value="all">${
+    t("allVariants")
+  }</option>${
+    variants.map((v) =>
+      `<option ${
+        state.cardFilters.variant === v ? "selected" : ""
+      }>${v}</option>`
+    ).join("")
+  }</select><select data-filter="status"><option value="all">${
+    t("allStatuses")
+  }</option><option value="owned">${
+    t("owned")
+  }</option><option value="wanted">${
+    t("wanted")
+  }</option><option value="missing">${
+    t("missing")
+  }</option></select><select data-filter="series" ${
+    series.length ? "" : "disabled"
+  }><option value="all">${
+    series.length ? t("allSeries") : t("loadingSeries")
+  }</option>${
+    series.map((v) =>
+      `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`
+    ).join("")
+  }</select><select data-filter="set" ${
+    sets.length ? "" : "disabled"
+  }><option value="all">${
+    sets.length ? t("allSets") : t("loadingSetNames")
+  }</option>${
+    sets.map((v) =>
+      `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`
+    ).join("")
+  }</select><select data-filter="rarity" ${
+    rarities.length ? "" : "disabled"
+  }><option value="all">${t("allRarities")}</option>${
+    rarities.map((v) => `<option>${escapeHtml(v)}</option>`).join("")
+  }</select><select data-filter="illustrator" ${
+    illustrators.length ? "" : "disabled"
+  }><option value="all">${
+    illustrators.length ? t("allArtists") : t("loadArtistNames")
+  }</option>${
+    illustrators.map((v) =>
+      `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`
+    ).join("")
+  }</select><button id="advancedFilters" ${
+    state.advancedLoaded ? "disabled" : ""
+  }>${state.advancedLoaded ? t("offline") : t("advanced")}</button>`;
+  bar.querySelectorAll("select").forEach((s) => {
+    s.value = state.cardFilters[s.dataset.filter] || "all";
+    s.addEventListener("change", (e) => {
+      state.cardFilters[e.target.dataset.filter] = e.target.value;
+      renderCards();
+    });
+  });
+  document.querySelector("#advancedFilters").addEventListener(
+    "click",
+    loadAdvancedMetadata,
+  );
+}
+function filteredCards() {
+  return state.cards.filter((c) => {
+    const status = state.cardStates[c.id] || "missing";
+    return cardIsVisible(c) &&
+      (!state.artist || state.artistCardIds?.has(c.id)) &&
+      (!state.catalogCardIds || state.catalogCardIds.has(c.id)) &&
+      (!state.rarityCardIds || state.rarityCardIds.has(c.id)) &&
+      (state.cardFilters.variant === "all" ||
+        c.variant === state.cardFilters.variant) &&
+      (state.cardFilters.status === "all" ||
+        status === state.cardFilters.status) &&
+      (state.cardFilters.series === "all" ||
+        c.series === state.cardFilters.series) &&
+      (state.cardFilters.set === "all" ||
+        c.set?.name === state.cardFilters.set) &&
+      (state.cardFilters.rarity === "all" ||
+        c.rarity === state.cardFilters.rarity) &&
+      (state.cardFilters.illustrator === "all" ||
+        c.illustrator === state.cardFilters.illustrator);
+  });
+}
+function cardQuantity(id, status) {
+  if (status !== "owned") return "";
+  const quantity = Math.max(1, Number(state.cardCounts[id]) || 1);
+  return `<span class="card-quantity" aria-label="${
+    t("ownedCopies")
+  }"><button data-count="-1" ${quantity <= 1 ? "disabled" : ""} aria-label="${
+    t("removeCopy")
+  }">−</button><b>${quantity}</b><button data-count="1" aria-label="${
+    t("addCopy")
+  }">+</button></span>`;
+}
+function canonicalPrintVariant(value = "") {
+  const key = value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (key.includes("reverse")) return "reverse";
+  if (key.includes("first") || key.includes("1st")) return "firstEdition";
+  if (key.includes("holo")) return "holo";
+  if (key.includes("promo")) return "wPromo";
+  if (key.includes("unlimited") || key.includes("normal")) return "normal";
+  return value;
+}
+function printVariantLabel(value) {
+  const labels = state.settings.language === "da"
+    ? {
+      normal: "Normal",
+      holo: "Holo",
+      reverse: "Omvendt holo",
+      firstEdition: "Første udgave",
+      wPromo: "Promokort",
+    }
+    : {
+      normal: "Normal",
+      holo: "Holo",
+      reverse: "Reverse holo",
+      firstEdition: "First edition",
+      wPromo: "Promo",
+    };
+  return labels[value] || titleCase(value);
+}
+function printVariantOptions(card) {
+  const options = [];
+  Object.entries(card.variants || {}).forEach(([key, enabled]) => {
+    const value = canonicalPrintVariant(key);
+    if (enabled && value && !options.includes(value)) options.push(value);
+  });
+  Object.entries(card.pricing?.tcgplayer || {}).forEach(([key, value]) => {
+    if (value && typeof value === "object") {
+      const variant = canonicalPrintVariant(key);
+      if (variant && !options.includes(variant)) options.push(variant);
+    }
+  });
+  return options.sort((a, b) =>
+    ["normal", "holo", "reverse", "firstEdition", "wPromo"].indexOf(a) -
+    ["normal", "holo", "reverse", "firstEdition", "wPromo"].indexOf(b)
+  );
+}
+function selectedPrintVariant(card) {
+  const options = printVariantOptions(card);
+  const savedVariant = state.cardPrintVariants[card.id];
+  return options.includes(savedVariant)
+    ? savedVariant
+    : (options[0] || "normal");
+}
+function cardPrintVariantControl(card, status) {
+  if (status !== "owned") return "";
+  const options = printVariantOptions(card);
+  if (!options.length) {
+    return `<span class="card-print-variant loading">${
+      t("loadingPrint")
+    }</span>`;
+  }
+  const selected = selectedPrintVariant(card);
+  return `<label class="card-print-variant">${
+    t("print")
+  }<select data-print-variant>${
+    options.map((option) =>
+      `<option value="${option}" ${option === selected ? "selected" : ""}>${
+        printVariantLabel(option)
+      }</option>`
+    ).join("")
+  }</select></label>`;
+}
+async function hydrateOwnedCard(id) {
+  const targets = [...state.cards, ...state.collectionCards].filter((card) =>
+    card.id === id
+  );
+  try {
+    const full = await getJson(`${TCG_API}/cards/${encodeURIComponent(id)}`);
+    targets.forEach((card) =>
+      Object.assign(card, full, {
+        variant: full.suffix || card.variant || deriveVariant(full.name),
+        series: card.series || full.set?.serie?.name || "Other series",
+      })
+    );
+    if (state.cardStates[id] === "owned" && !state.cardPrintVariants[id]) {
+      state.cardPrintVariants[id] = selectedPrintVariant(full);
+    }
+    saveUser();
+    renderCards();
+    if (collectionDialog.open) {
+      renderCollectionSummary();
+      populateCollectionFilters();
+      renderCollectionCards();
+    }
+  } catch {}
+}
+function setPrintVariant(id, variant) {
+  state.cardPrintVariants[id] = canonicalPrintVariant(variant);
+  saveUser();
+  renderCards();
+  if (collectionDialog.open) {
+    renderCollectionSummary();
+    renderCollectionCards();
+  }
+}
+function renderCards() {
+  const cardGrid = document.querySelector("#tcgGrid");
+  const count = document.querySelector("#cardsCount");
+  if (!cardGrid || !count) return;
+  let cards = filteredCards();
+  if (state.sort === "name") cards.sort((a, b) => a.name.localeCompare(b.name));
+  if (state.sort === "reverse") cards.reverse();
+  const scopedCards = state.cards.filter((c) =>
+    cardIsVisible(c) && (!state.artist || state.artistCardIds?.has(c.id)) &&
+    (!state.catalogCardIds || state.catalogCardIds.has(c.id)) &&
+    (!state.rarityCardIds || state.rarityCardIds.has(c.id))
+  );
+  const owned =
+    scopedCards.filter((c) => state.cardStates[c.id] === "owned").length;
+  const scopeLabels = [];
+  const da = state.settings.language === "da";
+  if (state.artist) scopeLabels.push(`${da ? "af" : "by"} ${state.artist}`);
+  const selectedSet = state.cardSets.find((set) => set.id === state.catalogSet);
+  const selectedSeries = state.cardSeries.find((series) =>
+    series.id === state.catalogSeries
+  );
+  if (selectedSet) scopeLabels.push(`${da ? "i" : "in"} ${selectedSet.name}`);
+  else if (selectedSeries) {
+    scopeLabels.push(`${da ? "i" : "in"} ${selectedSeries.name}`);
+  }
+  if (state.catalogRarity !== "all") {
+    scopeLabels.push(
+      da
+        ? `med sjældenheden ${state.catalogRarity}`
+        : `with ${state.catalogRarity} rarity`,
+    );
+  }
+  const scopeLabel = scopeLabels.length ? ` ${scopeLabels.join(" ")}` : "";
+  const cardLabel = cards.length === 1 ? t("cardFound") : t("cards");
+  count.textContent =
+    `${cards.length.toLocaleString()} ${cardLabel}${scopeLabel} · ${owned}/${scopedCards.length} ${
+      t("owned").toLowerCase()
+    }`;
+  const progress = document.querySelector("#collectionProgress");
+  if (progress) {
+    progress.style.width = `${
+      scopedCards.length ? owned / scopedCards.length * 100 : 0
+    }%`;
+  }
+  if (!cards.length) {
+    cardGrid.innerHTML = `<div class="cards-message">${
+      t("noMatchingCards")
+    }</div>`;
+    return;
+  }
+  cardGrid.innerHTML = cards.map((c) => {
+    const status = state.cardStates[c.id] || "";
+    return `<article class="tcg-card" data-card-id="${c.id}"><button class="tcg-open"><span class="tcg-image-wrap"><span class="variant-badge">${c.variant}</span><img loading="lazy" src="${
+      cardImageUrl(c, "low")
+    }" alt="${escapeHtml(c.name)}"></span><strong>${
+      escapeHtml(c.name)
+    }</strong><span>${escapeHtml(c.set?.name || t("setLoading"))} · ${
+      escapeHtml(c.rarity || `${t("card")} ${c.localId}`)
+    }</span></button><span class="card-status"><button data-status="owned" class="${
+      status === "owned" ? "active" : ""
+    }">✓ ${t("owned")}</button><button data-status="wanted" class="${
+      status === "wanted" ? "active" : ""
+    }">♥ ${t("wanted")}</button></span>${cardPrintVariantControl(c, status)}${
+      cardQuantity(c.id, status)
+    }</article>`;
+  }).join("");
+}
+async function loadAdvancedMetadata() {
+  const button = document.querySelector("#advancedFilters");
+  if (!button || button.disabled) return;
+  const cards = state.cards;
+  button.disabled = true;
+  button.textContent = state.settings.language === "da"
+    ? "Indlæser sjældenhed og illustratorer…"
+    : "Loading rarity & artists…";
+  let done = 0;
+  const queue = [
+    ...cards.filter((c) =>
+      !c.rarity || !c.illustrator || !c.variants || !c.pricing
+    ),
+  ];
+  const total = queue.length;
+  const workers = Array.from({ length: 6 }, async () => {
+    while (queue.length) {
+      const card = queue.shift();
+      try {
+        const details = await getJson(`${TCG_API}/cards/${card.id}`);
+        card.rarity = details.rarity;
+        card.illustrator = details.illustrator;
+        card.suffix = details.suffix;
+        card.variants = details.variants;
+        card.pricing = details.pricing;
+        card.variant = details.suffix || deriveVariant(card.name);
+      } catch {}
+      done++;
+      button.textContent = state.settings.language === "da"
+        ? `Indlæser oplysninger ${done}/${total}`
+        : `Loading details ${done}/${total}`;
+    }
+  });
+  await Promise.all(workers);
+  if (state.cards !== cards) return;
+  state.advancedLoaded = true;
+  if (state.artist && cards.some((card) => card.illustrator === state.artist)) {
+    state.cardFilters.illustrator = state.artist;
+  }
+  renderCardFilters();
+  renderCards();
+}
+
+async function openCard(card) {
+  cardDialog.dataset.cardId = card.id;
+  cardDialog.cardData = card;
+  if (!cardDialog.open) cardDialog.showModal();
+  const box = document.querySelector("#cardDetailContent");
+  box.innerHTML = `<div class="card-detail-art"><img src="${
+    cardImageUrl(card, "high")
+  }" alt="${
+    escapeHtml(card.name)
+  }"></div><div class="card-detail-copy"><div class="spinner"></div>${
+    t("loadingDetails")
+  }</div>`;
+  let full = card;
+  try {
+    full = { ...card, ...await getJson(`${TCG_API}/cards/${card.id}`) };
+    Object.assign(card, full);
+    renderCardFilters();
+  } catch {}
+  if (cardDialog.dataset.cardId !== card.id) return;
+  const variants =
+    Object.entries(full.variants || {}).filter(([, v]) => v).map(([k]) =>
+      `<span>${printVariantLabel(canonicalPrintVariant(k))}</span>`
+    ).join("") || `<span>${t("standard")}</span>`;
+  const prices = priceSummary(full.pricing).map((p) =>
+    `<span class="price-chip">${escapeHtml(p.label)}: ${
+      escapeHtml(p.value)
+    }</span>`
+  ).join("");
+  const setName = full.set?.name || t("unknownSet");
+  const seriesName = full.series || t("otherSeries");
+  const marketQuery = encodeURIComponent(
+    `${full.name} ${setName} ${full.localId}`,
+  );
+  const cardmarketId = full.pricing?.cardmarket?.idProduct;
+  const cardmarketUrl = cardmarketId
+    ? `https://www.cardmarket.com/en/Pokemon/Products?idProduct=${
+      encodeURIComponent(cardmarketId)
+    }`
+    : `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${
+      encodeURIComponent(full.name)
+    }`;
+  const status = state.cardStates[full.id] || "";
+  box.innerHTML = `<div class="card-detail-art"><img src="${
+    cardImageUrl(full, "high")
+  }" alt="${
+    escapeHtml(full.name)
+  }"></div><div class="card-detail-copy"><span class="variant-title">${
+    escapeHtml(full.suffix || deriveVariant(full.name))
+  } ${t("variant")}</span><h2>${escapeHtml(full.name)}</h2><p>${
+    escapeHtml(seriesName)
+  } · ${escapeHtml(setName)} · #${
+    escapeHtml(full.localId)
+  }</p><div class="detail-meta"><div><span>${t("series")}</span><strong>${
+    escapeHtml(seriesName)
+  }</strong></div><div><span>${t("set")}</span><strong>${
+    escapeHtml(setName)
+  }</strong></div><div><span>${t("rarity")}</span><strong>${
+    escapeHtml(full.rarity || t("unknown"))
+  }</strong></div><div><span>${t("illustrator")}</span><strong>${
+    escapeHtml(full.illustrator || t("unknown"))
+  }</strong></div><div><span>${t("stage")}</span><strong>${
+    escapeHtml(full.stage || "Pokémon")
+  }</strong></div><div><span>${t("hpType")}</span><strong>${
+    escapeHtml(full.hp || "—")
+  } · ${
+    escapeHtml((full.types || []).join(", ") || "—")
+  }</strong></div></div><div class="card-detail-collection"><span class="section-kicker">${
+    t("collectionStatus")
+  }</span><span class="card-status"><button data-detail-status="owned" class="${
+    status === "owned" ? "active" : ""
+  }">✓ ${t("owned")}</button><button data-detail-status="wanted" class="${
+    status === "wanted" ? "active" : ""
+  }">♥ ${t("wanted")}</button></span>${cardPrintVariantControl(full, status)}${
+    cardQuantity(full.id, status)
+  }</div><span class="section-kicker">${
+    t("printVariants")
+  }</span><div class="print-variants">${variants}</div>${
+    prices ? `<div class="price-list">${prices}</div>` : ""
+  }<div class="market-links"><a href="${cardmarketUrl}" target="_blank">Cardmarket ↗</a><a href="https://www.tcgplayer.com/search/pokemon/product?q=${marketQuery}" target="_blank">TCGplayer ↗</a></div></div>`;
+}
+function priceSummary(pricing) {
+  const out = [];
+  const cm = pricing?.cardmarket;
+  if (cm) {
+    if (Number.isFinite(cm.trend)) {
+      out.push({
+        label: "Cardmarket trend",
+        value: `${cm.unit || "EUR"} ${cm.trend.toFixed(2)}`,
+      });
+    }
+    if (Number.isFinite(cm["trend-holo"])) {
+      out.push({
+        label: "Cardmarket holo",
+        value: `${cm.unit || "EUR"} ${cm["trend-holo"].toFixed(2)}`,
+      });
+    }
+  }
+  const tcg = pricing?.tcgplayer;
+  if (tcg) {
+    for (const [variant, values] of Object.entries(tcg)) {
+      if (
+        values && typeof values === "object" &&
+        Number.isFinite(values.marketPrice)
+      ) {
+        out.push({
+          label: `TCGplayer ${variant}`,
+          value: `${tcg.unit || "USD"} ${values.marketPrice.toFixed(2)}`,
+        });
+      }
+    }
+  }
+  return out.slice(0, 6);
+}
+
+function setCardStatus(id, status) {
+  state.cardStates[id] = state.cardStates[id] === status ? "" : status;
+  if (!state.cardStates[id]) {
+    delete state.cardStates[id];
+    delete state.cardCounts[id];
+    delete state.cardPrintVariants[id];
+  } else if (status === "owned") {
+    state.cardCounts[id] = Math.max(1, Number(state.cardCounts[id]) || 1);
+  } else {
+    delete state.cardCounts[id];
+    delete state.cardPrintVariants[id];
+  }
+  saveUser();
+  renderCards();
+  if (state.cardStates[id] === "owned") hydrateOwnedCard(id);
+  if (collectionDialog.open) {
+    if (!state.cardStates[id]) {
+      state.collectionCards = state.collectionCards.filter((card) =>
+        card.id !== id
+      );
+    }
+    renderCollectionSummary();
+    populateCollectionFilters();
+    renderCollectionCards();
+  }
+}
+function adjustCardCount(id, change) {
+  if (state.cardStates[id] !== "owned") return;
+  state.cardCounts[id] = Math.max(
+    1,
+    (Number(state.cardCounts[id]) || 1) + Number(change),
+  );
+  saveUser();
+  renderCards();
+  if (collectionDialog.open) {
+    renderCollectionSummary();
+    renderCollectionCards();
+  }
+}
+function toggleFavorite(id) {
+  id = Number(id);
+  state.favorites.has(id)
+    ? state.favorites.delete(id)
+    : state.favorites.add(id);
+  saveUser();
+  renderPokemon();
+}
+function cardmarketValue(card) {
+  const pricing = card.pricing?.cardmarket || {};
+  const variant = selectedPrintVariant(card);
+  if (variant === "holo") {
+    const holo = [
+      pricing["trend-holo"],
+      pricing["avg30-holo"],
+      pricing["avg7-holo"],
+      pricing["avg1-holo"],
+      pricing["low-holo"],
+    ].find((value) => Number.isFinite(value) && value > 0);
+    return holo ??
+      [pricing.trend, pricing.avg30, pricing.avg7, pricing.avg1, pricing.low]
+        .find(Number.isFinite);
+  }
+  if (variant === "reverse") {
+    return [
+      pricing["trend-reverse"],
+      pricing["avg30-reverse"],
+      pricing["avg7-reverse"],
+      pricing["avg1-reverse"],
+    ].find(Number.isFinite);
+  }
+  if (variant === "firstEdition") {
+    return [pricing["trend-first-edition"], pricing["avg30-first-edition"]]
+      .find(Number.isFinite);
+  }
+  return [pricing.trend, pricing.avg30, pricing.avg7, pricing.avg1, pricing.low]
+    .find(Number.isFinite);
+}
+function tcgplayerValue(card) {
+  const selected = selectedPrintVariant(card);
+  const entry = Object.entries(card.pricing?.tcgplayer || {}).find((
+    [key, value],
+  ) =>
+    value && typeof value === "object" &&
+    canonicalPrintVariant(key) === selected
+  )?.[1];
+  return Number.isFinite(entry?.marketPrice) ? entry.marketPrice : undefined;
+}
+function money(value, currency) {
+  return new Intl.NumberFormat(
+    state.settings.language === "da" ? "da-DK" : "en-US",
+    { style: "currency", currency, minimumFractionDigits: 2 },
+  ).format(value);
+}
+function renderCollectionSummary() {
+  const ownedIds = Object.keys(state.cardStates).filter((id) =>
+    state.cardStates[id] === "owned"
+  );
+  const ownedCopies = ownedIds.reduce(
+    (total, id) => total + Math.max(1, Number(state.cardCounts[id]) || 1),
+    0,
+  );
+  const wanted =
+    Object.values(state.cardStates).filter((v) => v === "wanted").length;
+  const loaded = new Map(state.collectionCards.map((card) => [card.id, card]));
+  const allOwnedLoaded = ownedIds.every((id) => loaded.has(id));
+  let cardmarketTotal = 0;
+  let tcgplayerTotal = 0;
+  let cardmarketPriced = 0;
+  let tcgplayerPriced = 0;
+  ownedIds.forEach((id) => {
+    const card = loaded.get(id);
+    const quantity = Math.max(1, Number(state.cardCounts[id]) || 1);
+    const cm = card && cardmarketValue(card);
+    const tcg = card && tcgplayerValue(card);
+    if (Number.isFinite(cm)) {
+      cardmarketTotal += cm * quantity;
+      cardmarketPriced++;
+    }
+    if (Number.isFinite(tcg)) {
+      tcgplayerTotal += tcg * quantity;
+      tcgplayerPriced++;
+    }
+  });
+  const cmText = !allOwnedLoaded
+    ? t("loading")
+    : ownedIds.length && !cardmarketPriced
+    ? "—"
+    : money(cardmarketTotal, "EUR");
+  const tcgText = !allOwnedLoaded
+    ? t("loading")
+    : ownedIds.length && !tcgplayerPriced
+    ? "—"
+    : money(tcgplayerTotal, "USD");
+  document.querySelector("#collectionStats").innerHTML =
+    `<div><strong>${ownedCopies}</strong><span>${
+      t("ownedCopies")
+    } · ${ownedIds.length} ${
+      t("unique")
+    }</span></div><div><strong>${cmText}</strong><span>Cardmarket ${
+      t("total")
+    } · ${cardmarketPriced}/${ownedIds.length} ${
+      t("priced")
+    }</span></div><div><strong>${tcgText}</strong><span>TCGplayer ${
+      t("total")
+    } · ${tcgplayerPriced}/${ownedIds.length} ${
+      t("priced")
+    }</span></div><div><strong>${wanted}</strong><span>${t("wanted")} ${
+      state.settings.language === "da" ? "kort" : "cards"
+    }</span></div><div><strong>${state.favorites.size}</strong><span>${
+      t("favoritePokemon")
+    }</span></div>`;
+  document.querySelector("#favoriteList").innerHTML =
+    [...state.favorites].map((id) => {
+      const p = state.pokemon.find((x) => x.id === id);
+      return p
+        ? `<button data-pokemon="${p.name}"><img src="${ART}/${id}.png" alt="">${
+          titleCase(p.name)
+        }</button>`
+        : "";
+    }).join("") || `<p>${t("noFavorites")}</p>`;
+}
+function prepareCollectionCard(card) {
+  return {
+    ...card,
+    variant: card.suffix || card.variant || deriveVariant(card.name),
+    series: card.series || card.set?.serie?.name || "Other series",
+  };
+}
+function cardPokedexNumber(card) {
+  if (Number.isFinite(card.pokedexNumber)) return card.pokedexNumber;
+  const haystack = ` ${normalizeCardName(card.name)} `;
+  const matches = state.pokemon.filter((pokemon) =>
+    haystack.includes(
+      ` ${
+        normalizeCardName(
+          tcgNameOverrides[pokemon.name] || titleCase(pokemon.name),
+        )
+      } `,
+    )
+  ).map((pokemon) => pokemon.id);
+  card.pokedexNumber = matches.length
+    ? Math.min(...matches)
+    : Number.MAX_SAFE_INTEGER;
+  return card.pokedexNumber;
+}
+function collectionOptions(key) {
+  return [
+    ...new Set(
+      state.collectionCards.map((card) =>
+        key === "set" ? card.set?.name : card[key]
+      ).filter(Boolean),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+}
+function collectionSelect(key, label, allLabel, values) {
+  return `<select data-collection-filter="${key}" aria-label="${label}"><option value="all">${allLabel}</option>${
+    values.map((value) =>
+      `<option value="${escapeHtml(value)}" ${
+        state.collectionFilters[key] === value ? "selected" : ""
+      }>${escapeHtml(value)}</option>`
+    ).join("")
+  }</select>`;
+}
+function populateCollectionFilters() {
+  const available = {
+    series: collectionOptions("series"),
+    set: collectionOptions("set"),
+    rarity: collectionOptions("rarity"),
+    variant: collectionOptions("variant"),
+    illustrator: collectionOptions("illustrator"),
+  };
+  Object.entries(available).forEach(([key, values]) => {
+    if (
+      state.collectionFilters[key] !== "all" &&
+      !values.includes(state.collectionFilters[key])
+    ) state.collectionFilters[key] = "all";
+  });
+  collectionFilters.innerHTML =
+    `<select data-collection-filter="status" aria-label="${
+      t("allStatuses")
+    }"><option value="all">${
+      t("allStatusesCollection")
+    }</option><option value="owned" ${
+      state.collectionFilters.status === "owned" ? "selected" : ""
+    }>${t("owned")}</option><option value="wanted" ${
+      state.collectionFilters.status === "wanted" ? "selected" : ""
+    }>${t("wanted")}</option></select>${
+      collectionSelect("series", t("series"), t("allSeries"), available.series)
+    }${collectionSelect("set", t("set"), t("allSets"), available.set)}${
+      collectionSelect(
+        "rarity",
+        t("rarity"),
+        t("allRarities"),
+        available.rarity,
+      )
+    }${
+      collectionSelect(
+        "variant",
+        t("variant"),
+        t("allVariants"),
+        available.variant,
+      )
+    }${
+      collectionSelect(
+        "illustrator",
+        t("illustrator"),
+        t("allArtists"),
+        available.illustrator,
+      )
+    }<select data-collection-filter="sort" aria-label="${
+      t("sortCards")
+    }"><option value="name">${t("nameOrder")}</option><option value="pokedex" ${
+      state.collectionFilters.sort === "pokedex" ? "selected" : ""
+    }>${t("pokedexSort")}</option><option value="setNumber" ${
+      state.collectionFilters.sort === "setNumber" ? "selected" : ""
+    }>${t("setNumberSort")}</option><option value="cardmarket" ${
+      state.collectionFilters.sort === "cardmarket" ? "selected" : ""
+    }>${t("cardmarketSort")}</option><option value="tcgplayer" ${
+      state.collectionFilters.sort === "tcgplayer" ? "selected" : ""
+    }>${t("tcgplayerSort")}</option></select>`;
+  collectionFilters.querySelectorAll("select").forEach((select) =>
+    select.addEventListener("change", (event) => {
+      state.collectionFilters[event.target.dataset.collectionFilter] =
+        event.target.value;
+      renderCollectionCards();
+    })
+  );
+}
+function filteredCollectionCards() {
+  const query = state.collectionFilters.query.trim().toLowerCase();
+  const cards = state.collectionCards.filter((card) => {
+    const status = state.cardStates[card.id];
+    const haystack = [
+      card.name,
+      card.id,
+      card.localId,
+      card.set?.name,
+      card.series,
+      card.rarity,
+      card.variant,
+      card.illustrator,
+    ].filter(Boolean).join(" ").toLowerCase();
+    return (!query || haystack.includes(query)) &&
+      (state.collectionFilters.status === "all" ||
+        status === state.collectionFilters.status) &&
+      (state.collectionFilters.series === "all" ||
+        card.series === state.collectionFilters.series) &&
+      (state.collectionFilters.set === "all" ||
+        card.set?.name === state.collectionFilters.set) &&
+      (state.collectionFilters.rarity === "all" ||
+        card.rarity === state.collectionFilters.rarity) &&
+      (state.collectionFilters.variant === "all" ||
+        card.variant === state.collectionFilters.variant) &&
+      (state.collectionFilters.illustrator === "all" ||
+        card.illustrator === state.collectionFilters.illustrator);
+  });
+  const valueFor = state.collectionFilters.sort === "cardmarket"
+    ? cardmarketValue
+    : state.collectionFilters.sort === "tcgplayer"
+    ? tcgplayerValue
+    : null;
+  if (valueFor) {
+    return cards.sort((a, b) =>
+      (valueFor(b) ?? -1) - (valueFor(a) ?? -1) || a.name.localeCompare(b.name)
+    );
+  }
+  if (state.collectionFilters.sort === "pokedex") {
+    return cards.sort((a, b) =>
+      cardPokedexNumber(a) - cardPokedexNumber(b) ||
+      a.name.localeCompare(b.name) ||
+      String(a.localId).localeCompare(String(b.localId), undefined, {
+        numeric: true,
+      })
+    );
+  }
+  if (state.collectionFilters.sort === "setNumber") {
+    return cards.sort((a, b) =>
+      String(a.localId || "").localeCompare(
+        String(b.localId || ""),
+        undefined,
+        { numeric: true, sensitivity: "base" },
+      ) || String(a.set?.name || "").localeCompare(String(b.set?.name || "")) ||
+      a.name.localeCompare(b.name)
+    );
+  }
+  return cards.sort((a, b) =>
+    a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
+  );
+}
+function renderCollectionCards() {
+  const cards = filteredCollectionCards();
+  document.querySelector("#collectionResultCount").textContent =
+    `${cards.length} ${
+      state.settings.language === "da"
+        ? "kort"
+        : `card${cards.length === 1 ? "" : "s"}`
+    }`;
+  if (!Object.keys(state.cardStates).length) {
+    collectionCardGrid.innerHTML = `<div class="collection-empty">${
+      t("markCards")
+    }</div>`;
+    return;
+  }
+  if (!cards.length) {
+    collectionCardGrid.innerHTML = `<div class="collection-empty">${
+      t("noSavedMatch")
+    }</div>`;
+    return;
+  }
+  collectionCardGrid.innerHTML = cards.map((card) => {
+    const status = state.cardStates[card.id];
+    const cm = cardmarketValue(card);
+    const tcg = tcgplayerValue(card);
+    const dex = cardPokedexNumber(card);
+    return `<article class="collection-card" data-card-id="${card.id}"><button class="collection-card-open"><img loading="lazy" src="${
+      cardImageUrl(card, "low")
+    }" alt="${escapeHtml(card.name)}"><strong>${
+      escapeHtml(card.name)
+    }</strong><small>${
+      Number.isFinite(dex) && dex < Number.MAX_SAFE_INTEGER
+        ? `${formatId(dex)} · `
+        : ""
+    }${escapeHtml(card.set?.name || card.series || card.id)} · #${
+      escapeHtml(card.localId || "—")
+    }</small><small>${
+      escapeHtml(card.variant)
+    }</small><span class="collection-values"><i>CM ${
+      Number.isFinite(cm) ? money(cm, "EUR") : "—"
+    }</i><i>TCG ${
+      Number.isFinite(tcg) ? money(tcg, "USD") : "—"
+    }</i></span></button><span class="card-status"><button data-status="owned" class="${
+      status === "owned" ? "active" : ""
+    }">✓ ${t("owned")}</button><button data-status="wanted" class="${
+      status === "wanted" ? "active" : ""
+    }">♥ ${t("wanted")}</button></span>${
+      cardPrintVariantControl(card, status)
+    }${cardQuantity(card.id, status)}</article>`;
+  }).join("");
+}
+async function showCollection() {
+  renderCollectionSummary();
+  if (!collectionDialog.open) collectionDialog.showModal();
+  collectionSearch.value = state.collectionFilters.query;
+  const request = ++state.collectionRequest;
+  const ids = Object.keys(state.cardStates);
+  const previous = new Map(
+    state.collectionCards.map((card) => [card.id, card]),
+  );
+  state.collectionCards = ids.map((id) => previous.get(id)).filter(Boolean);
+  populateCollectionFilters();
+  renderCollectionCards();
+  if (!ids.length) {
+    renderCollectionSummary();
+    return;
+  }
+  if (!state.collectionCards.length) {
+    collectionCardGrid.innerHTML =
+      `<div class="collection-empty"><div class="spinner"></div>${
+        t("loadingSaved")
+      }</div>`;
+  }
+  const queue = [...ids];
+  const refreshed = new Map();
+  const workers = Array.from({ length: 6 }, async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      try {
+        refreshed.set(
+          id,
+          prepareCollectionCard(
+            await getJson(
+              `${TCG_API}/cards/${encodeURIComponent(id)}`,
+              true,
+              true,
+            ),
+          ),
+        );
+      } catch {}
+    }
+  });
+  await Promise.all(workers);
+  if (request !== state.collectionRequest) return;
+  state.collectionCards = ids.filter((id) => state.cardStates[id]).map((id) =>
+    refreshed.get(id) || previous.get(id)
+  ).filter(Boolean);
+  renderCollectionSummary();
+  populateCollectionFilters();
+  renderCollectionCards();
+}
+function exportCollection() {
+  const blob = new Blob([JSON.stringify(
+    {
+      version: 3,
+      exportedAt: new Date().toISOString(),
+      favorites: [...state.favorites],
+      cardStates: state.cardStates,
+      cardCounts: state.cardCounts,
+      cardPrintVariants: state.cardPrintVariants,
+      settings: state.settings,
+    },
+    null,
+    2,
+  )], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "cardedex-collection-backup.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+async function importCollection(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    state.favorites = new Set(data.favorites || []);
+    state.cardStates = data.cardStates || {};
+    state.cardCounts = data.cardCounts || {};
+    state.cardPrintVariants = data.cardPrintVariants || {};
+    state.settings = { ...state.settings, ...data.settings };
+    saveUser();
+    applySettings();
+    renderPokemon();
+    showCollection();
+  } catch {
+    alert(t("invalidBackup"));
+  }
+}
+function applySettings() {
+  document.body.classList.toggle("dark", state.settings.dark);
+  document.querySelector("#themeToggle").textContent = state.settings.dark
+    ? "☀"
+    : "☾";
+  document.querySelector("#langToggle").textContent =
+    state.settings.language === "en" ? "DA" : "EN";
+  document.documentElement.lang = state.settings.language;
+  document.title = state.settings.language === "da"
+    ? "Cardédex — Pokémon og kort"
+    : "Cardédex — Pokémon & cards";
+  const setText = (selector, key) => {
+    const node = document.querySelector(selector);
+    if (node) node.textContent = t(key);
+  };
+  const setHtml = (selector, key) => {
+    const node = document.querySelector(selector);
+    if (node) node.innerHTML = t(key);
+  };
+  const setLabel = (selector, key) => {
+    const node = document.querySelector(selector);
+    if (node) {
+      node.setAttribute("aria-label", t(key));
+      node.title = t(key);
+    }
+  };
+  setText('nav a[href="#about"]', "about");
+  setText(".eyebrow", "completeCompanion");
+  document.querySelector(".eyebrow").insertAdjacentHTML(
+    "afterbegin",
+    "<span></span>",
+  );
+  setHtml(".hero h1", "heroTitle");
+  setText(".hero>p", "heroDescription");
+  setText(".quick-picks>span", "popular");
+  setText(".catalog-heading .section-kicker", "nationalPokedex");
+  setText("#catalogTitle", "choosePokemon");
+  setText(".result-count span", "pokemonFound");
+  setText('#generationFilters [data-gen="all"]', "allGenerations");
+  setText(".pocket-toggle span", "hidePocket");
+  hidePocketToggle.classList.toggle("active", state.settings.hidePocket);
+  hidePocketToggle.setAttribute(
+    "aria-pressed",
+    String(state.settings.hidePocket),
+  );
+  document.querySelectorAll(".catalog-select>span").forEach((node, index) =>
+    node.textContent = t(["series", "set", "rarity", "order"][index])
+  );
+  setText(".empty-state h3", "noPokemon");
+  setText(".empty-state p", "tryAnother");
+  loadMore.childNodes[0].textContent = `${t("loadMore")} `;
+  setText(".about>span", "builtForCollectors");
+  setHtml(".about h2", "aboutTitle");
+  setText(".about p", "aboutDescription");
+  setText("footer>p", "footer");
+  setText(".collection-button span", "myCollection");
+  setText(".collection-content>.section-kicker", "savedDevice");
+  setText(".collection-content>h2", "myCollection");
+  setText(".collection-intro", "collectionPrivacy");
+  setText("#exportCollection", "exportBackup");
+  setText("#importCollection", "importBackup");
+  setText(".collection-browser-heading .section-kicker", "cardChecklist");
+  setText("#collectionCardsTitle", "savedCards");
+  setText(".favorite-heading .section-kicker", "favoritePokemon");
+  template.content.querySelector(".card-copy>span").innerHTML = `${
+    t("viewCards")
+  } <i>↗</i>`;
+  searchInput.placeholder = t("searchPokemon");
+  collectionSearch.placeholder = t("searchCollection");
+  mainArtistInput.placeholder = t("searchIllustrator");
+  if (!state.artist) artistStatus.textContent = t("artistPrompt");
+  setLabel("#langToggle", "switchLanguage");
+  setLabel("#themeToggle", "toggleDark");
+  setLabel("#generationFilters", "filterGeneration");
+  setLabel(".catalog-dropdowns", "filterRelease");
+  setLabel("#mainArtistInput", "filterIllustrator");
+  setLabel("#clearArtist", "clearIllustrator");
+  setLabel("#drawerClose", "closeDetails");
+  setLabel("#lightboxClose", "closePreview");
+  setLabel("#collectionClose", "closeCollection");
+  const pokedexOption = mainOrderFilter.querySelector('[value="pokedex"]');
+  if (pokedexOption) pokedexOption.textContent = t("pokedexNumber");
+  if (mainSeriesFilter.options[0]) {
+    mainSeriesFilter.options[0].textContent = t("allSeries");
+  }
+  if (mainSetFilter.options[0] && !mainSetFilter.disabled) {
+    mainSetFilter.options[0].textContent = t("allSets");
+  }
+  if (mainRarityFilter.options[0]) {
+    mainRarityFilter.options[0].textContent = t("allRarities");
+  }
+  updateMainOrderControl();
+}
+function closeDrawer(updateHistory = true) {
+  drawer.classList.remove("open");
+  backdrop.classList.remove("visible");
+  drawer.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("drawer-open");
+  state.current = null;
+  setTimeout(() => {
+    backdrop.hidden = true;
+  }, 300);
+  if (updateHistory && location.search) {
+    history.pushState({}, "", location.pathname);
+  }
+}
+
+grid.addEventListener("click", (e) => {
+  const star = e.target.closest(".favorite-star");
+  if (star) {
+    e.stopPropagation();
+    toggleFavorite(star.dataset.id);
+    return;
+  }
+  const card = e.target.closest(".pokemon-card");
+  if (card) openPokemon(card.dataset.name);
+});
+loadMore.addEventListener("click", () => {
+  state.visible += PAGE_SIZE;
+  renderPokemon();
+});
+document.querySelector("#generationFilters").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  document.querySelectorAll("#generationFilters button").forEach((x) =>
+    x.classList.remove("active")
+  );
+  b.classList.add("active");
+  state.generation = b.dataset.gen;
+  applyFilters();
+});
+mainSeriesFilter.addEventListener("change", (event) => {
+  state.catalogSeries = event.target.value;
+  state.catalogSet = "all";
+  renderMainSetOptions();
+  applyMainCardFilter();
+});
+mainSetFilter.addEventListener("change", (event) => {
+  state.catalogSet = event.target.value;
+  const set = state.cardSets.find((item) => item.id === state.catalogSet);
+  if (set && state.catalogSeries !== set.seriesId) {
+    state.catalogSeries = set.seriesId;
+    mainSeriesFilter.value = set.seriesId;
+    renderMainSetOptions();
+    mainSetFilter.value = set.id;
+  }
+  applyMainCardFilter();
+});
+mainRarityFilter.addEventListener("change", (event) => {
+  state.catalogRarity = event.target.value;
+  applyMainRarityFilter();
+});
+mainOrderFilter.addEventListener("change", (event) => {
+  state.mainOrder = event.target.value;
+  applyFilters();
+});
+hidePocketToggle.addEventListener("click", () => {
+  const selectedSet = state.cardSets.find((set) => set.id === state.catalogSet);
+  const hidePocket = !state.settings.hidePocket;
+  const resetRelease = hidePocket &&
+    (state.catalogSeries === POCKET_SERIES_ID || isPocketSet(selectedSet));
+  state.settings.hidePocket = hidePocket;
+  hidePocketToggle.classList.toggle("active", hidePocket);
+  hidePocketToggle.setAttribute("aria-pressed", String(hidePocket));
+  saveUser();
+  if (resetRelease) {
+    state.catalogSeries = "all";
+    state.catalogSet = "all";
+  }
+  state.cardFilters.series = "all";
+  state.cardFilters.set = "all";
+  renderMainSeriesOptions();
+  renderMainSetOptions();
+  if (resetRelease) applyMainCardFilter();
+  if (state.artist) {
+    const artist = state.artist;
+    state.artist = null;
+    state.artistPokemonIds = null;
+    selectMainArtist(artist);
+  }
+  if (state.catalogRarity !== "all") applyMainRarityFilter();
+  renderCardFilters();
+  renderCards();
+});
+searchInput.addEventListener("input", (e) => {
+  state.query = e.target.value;
+  applyFilters();
+  renderSearchSuggestions();
+});
+searchInput.addEventListener("focus", () => {
+  if (searchInput.value.trim()) renderSearchSuggestions();
+});
+searchInput.addEventListener(
+  "blur",
+  () => setTimeout(hideSearchSuggestions, 140),
+);
+searchInput.addEventListener("keydown", (event) => {
+  const options = [...searchSuggestions.querySelectorAll("[data-pokemon]")];
+  if (event.key === "ArrowDown" && options.length) {
+    event.preventDefault();
+    highlightSearchSuggestion(searchSuggestionIndex + 1);
+  } else if (event.key === "ArrowUp" && options.length) {
+    event.preventDefault();
+    highlightSearchSuggestion(searchSuggestionIndex - 1);
+  } else if (
+    event.key === "Enter" && !searchSuggestions.hidden && options.length
+  ) {
+    event.preventDefault();
+    choosePokemonSuggestion(
+      options[Math.max(0, searchSuggestionIndex)].dataset.pokemon,
+    );
+  } else if (event.key === "Escape") hideSearchSuggestions();
+});
+searchSuggestions.addEventListener("pointerdown", (event) => {
+  const option = event.target.closest("[data-pokemon]");
+  if (!option) return;
+  event.preventDefault();
+  choosePokemonSuggestion(option.dataset.pokemon);
+});
+document.querySelector("#searchForm").addEventListener(
+  "submit",
+  (e) => e.preventDefault(),
+);
+mainArtistInput.addEventListener("focus", () => showArtistSuggestions());
+mainArtistInput.addEventListener("click", () => showArtistSuggestions());
+mainArtistInput.addEventListener("input", (e) => {
+  const value = e.target.value;
+  showArtistSuggestions(value);
+  if (!value.trim()) {
+    if (state.artist) clearMainArtist();
+    showArtistSuggestions();
+    return;
+  }
+  const exact = state.illustrators.find((name) =>
+    name.toLowerCase() === value.trim().toLowerCase()
+  );
+  if (exact) selectMainArtist(exact);
+});
+mainArtistInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    selectMainArtist(e.currentTarget.value);
+  }
+  if (e.key === "Escape") hideArtistSuggestions();
+});
+mainArtistInput.addEventListener(
+  "blur",
+  () => setTimeout(hideArtistSuggestions, 120),
+);
+artistSuggestions.addEventListener("mousedown", (e) => {
+  const option = e.target.closest("[data-artist]");
+  if (!option) return;
+  e.preventDefault();
+  selectMainArtist(option.dataset.artist);
+});
+clearArtist.addEventListener("click", () => {
+  clearMainArtist();
+  hideArtistSuggestions();
+});
+document.querySelector(".quick-picks").addEventListener("click", (e) => {
+  if (!e.target.dataset.search) return;
+  searchInput.value = e.target.dataset.search;
+  state.query = e.target.dataset.search;
+  applyFilters();
+  document.querySelector(".catalog").scrollIntoView({ behavior: "smooth" });
+});
+drawerContent.addEventListener("click", (e) => {
+  const evo = e.target.closest("[data-evolution]");
+  if (evo) {
+    openPokemon(evo.dataset.evolution);
+    return;
+  }
+  const quantity = e.target.closest("[data-count]");
+  if (quantity) {
+    adjustCardCount(
+      quantity.closest(".tcg-card").dataset.cardId,
+      quantity.dataset.count,
+    );
+    return;
+  }
+  const status = e.target.closest("[data-status]");
+  if (status) {
+    setCardStatus(
+      status.closest(".tcg-card").dataset.cardId,
+      status.dataset.status,
+    );
+    return;
+  }
+  const open = e.target.closest(".tcg-open");
+  if (open) {
+    const card = state.cards.find((c) =>
+      c.id === open.closest(".tcg-card").dataset.cardId
+    );
+    if (card) openCard(card);
+  }
+});
+drawerContent.addEventListener("change", (event) => {
+  if (event.target.matches("[data-print-variant]")) {
+    setPrintVariant(
+      event.target.closest(".tcg-card").dataset.cardId,
+      event.target.value,
+    );
+  }
+});
+document.querySelector("#drawerClose").addEventListener(
+  "click",
+  () => closeDrawer(),
+);
+backdrop.addEventListener("click", () => closeDrawer());
+document.querySelector("#lightboxClose").addEventListener(
+  "click",
+  () => cardDialog.close(),
+);
+cardDialog.addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) {
+    e.currentTarget.close();
+    return;
+  }
+  const cardId = cardDialog.dataset.cardId;
+  const card = cardDialog.cardData || state.cards.find((value) =>
+    value.id === cardId
+  ) || state.collectionCards.find((value) => value.id === cardId);
+  if (!card) return;
+  const status = e.target.closest("[data-detail-status]");
+  if (status) {
+    setCardStatus(cardId, status.dataset.detailStatus);
+    openCard(card);
+    return;
+  }
+  const quantity = e.target.closest("[data-count]");
+  if (quantity) {
+    adjustCardCount(cardId, quantity.dataset.count);
+    openCard(card);
+  }
+});
+cardDialog.addEventListener("change", (event) => {
+  if (!event.target.matches("[data-print-variant]")) return;
+  const cardId = cardDialog.dataset.cardId;
+  const card = cardDialog.cardData || state.cards.find((value) =>
+    value.id === cardId
+  ) || state.collectionCards.find((value) => value.id === cardId);
+  setPrintVariant(cardId, event.target.value);
+  if (card) openCard(card);
+});
+document.querySelector("#collectionOpen").addEventListener(
+  "click",
+  showCollection,
+);
+document.querySelector("#collectionClose").addEventListener(
+  "click",
+  () => collectionDialog.close(),
+);
+document.querySelector("#exportCollection").addEventListener(
+  "click",
+  exportCollection,
+);
+document.querySelector("#importCollection").addEventListener(
+  "click",
+  () => document.querySelector("#importFile").click(),
+);
+document.querySelector("#importFile").addEventListener("change", (e) => {
+  if (e.target.files[0]) importCollection(e.target.files[0]);
+});
+document.querySelector("#favoriteList").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-pokemon]");
+  if (b) {
+    collectionDialog.close();
+    openPokemon(b.dataset.pokemon);
+  }
+});
+collectionSearch.addEventListener("input", (event) => {
+  state.collectionFilters.query = event.target.value;
+  renderCollectionCards();
+});
+collectionCardGrid.addEventListener("click", (event) => {
+  const item = event.target.closest(".collection-card");
+  if (!item) return;
+  const quantity = event.target.closest("[data-count]");
+  if (quantity) {
+    adjustCardCount(item.dataset.cardId, quantity.dataset.count);
+    return;
+  }
+  const status = event.target.closest("[data-status]");
+  if (status) {
+    setCardStatus(item.dataset.cardId, status.dataset.status);
+    return;
+  }
+  const open = event.target.closest(".collection-card-open");
+  if (open) {
+    const card = state.collectionCards.find((value) =>
+      value.id === item.dataset.cardId
+    );
+    if (card) openCard(card);
+  }
+});
+collectionCardGrid.addEventListener("change", (event) => {
+  if (event.target.matches("[data-print-variant]")) {
+    setPrintVariant(
+      event.target.closest(".collection-card").dataset.cardId,
+      event.target.value,
+    );
+  }
+});
+document.querySelector("#themeToggle").addEventListener("click", () => {
+  state.settings.dark = !state.settings.dark;
+  saveUser();
+  applySettings();
+});
+document.querySelector("#langToggle").addEventListener("click", () => {
+  state.settings.language = state.settings.language === "en" ? "da" : "en";
+  saveUser();
+  applySettings();
+  renderPokemon();
+  if (state.artist) selectMainArtist(state.artist);
+  if (state.current) openPokemon(state.current.name, false);
+  if (collectionDialog.open) {
+    renderCollectionSummary();
+    populateCollectionFilters();
+    renderCollectionCards();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    searchInput.focus();
+  }
+  if (e.key === "Escape" && drawer.classList.contains("open")) closeDrawer();
+});
+window.addEventListener("popstate", () => {
+  const slug = new URLSearchParams(location.search).get("pokemon");
+  if (slug) openPokemon(slug, false);
+  else closeDrawer(false);
+});
 
 updateMainOrderControl();
 loadPokemon();
 
-if('serviceWorker'in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1'))window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js').catch(()=>{}));
+if (
+  "serviceWorker" in navigator &&
+  (location.protocol === "https:" || location.hostname === "localhost" ||
+    location.hostname === "127.0.0.1")
+) {
+  window.addEventListener(
+    "load",
+    () =>
+      navigator.serviceWorker.register("./service-worker.js").catch(() => {}),
+  );
+}
