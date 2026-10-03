@@ -193,7 +193,7 @@ searchInput.addEventListener("focus", () => {
 });
 searchInput.addEventListener(
   "blur",
-  () => setTimeout(hideSearchSuggestions, 140),
+  () => setTimeout(hideSearchSuggestions, 400),
 );
 searchInput.addEventListener("keydown", (event) => {
   const options = [...searchSuggestions.querySelectorAll("[data-pokemon]")];
@@ -212,12 +212,21 @@ searchInput.addEventListener("keydown", (event) => {
     );
   } else if (event.key === "Escape") hideSearchSuggestions();
 });
-searchSuggestions.addEventListener("pointerdown", (event) => {
+let lastSearchSuggestionTap = 0;
+function activateSearchSuggestion(event) {
   const option = event.target.closest("[data-pokemon]");
   if (!option) return;
   event.preventDefault();
+  const now = Date.now();
+  if (now - lastSearchSuggestionTap < 600) return;
+  lastSearchSuggestionTap = now;
   choosePokemonSuggestion(option.dataset.pokemon);
+}
+searchSuggestions.addEventListener("pointerdown", activateSearchSuggestion);
+searchSuggestions.addEventListener("touchend", activateSearchSuggestion, {
+  passive: false,
 });
+searchSuggestions.addEventListener("click", activateSearchSuggestion);
 document.querySelector("#searchForm").addEventListener(
   "submit",
   (e) => e.preventDefault(),

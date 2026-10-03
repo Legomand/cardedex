@@ -123,6 +123,7 @@ function choosePokemonSuggestion(name) {
   state.query = pokemon.name;
   applyFilters();
   hideSearchSuggestions();
+  searchInput.blur();
   openPokemon(pokemon.name);
 }
 function renderPokemon() {
