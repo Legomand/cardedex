@@ -294,6 +294,29 @@ const words = {
     loadingArtists: "Loading artists…",
     noArtists: "No matching artists",
     chooseSuggestion: "Choose an illustrator from the suggestions.",
+    scanCard: "Scan a Pokémon card",
+    closeScanner: "Close card scanner",
+    scannerKicker: "Card scanner",
+    scannerIntro:
+      "Place one card on a plain surface with its name and collector number visible.",
+    takePhoto: "Take photo",
+    choosePicture: "Choose picture",
+    scannerPrivacy:
+      "Recognition runs on this device. Your picture is not uploaded to Cardédex.",
+    scannerPreparing: "Preparing the picture…",
+    scannerReading: "Reading the card… {progress}%",
+    scannerSearching: "Searching for matching cards…",
+    scannerMatches: "Possible matches",
+    scannerOwned: "Owned · {count}",
+    scannerWanted: "Wanted",
+    scannerNotSaved: "Not in collection",
+    scannerNoPokemon:
+      "I couldn't read the Pokémon name. Try again with the card closer, straight, and without glare.",
+    scannerNoCards:
+      "I found {name}, but couldn't match the exact card. Try a clearer picture of the collector number.",
+    scannerUnavailable:
+      "The scanner could not start. Check your connection and try again.",
+    scannerOpenCard: "Open card",
   },
   da: {
     about: "Om",
@@ -427,6 +450,29 @@ const words = {
     loadingArtists: "Indlæser illustratorer…",
     noArtists: "Ingen matchende illustratorer",
     chooseSuggestion: "Vælg en illustrator fra forslagene.",
+    scanCard: "Scan et Pokémon-kort",
+    closeScanner: "Luk kortscanner",
+    scannerKicker: "Kortscanner",
+    scannerIntro:
+      "Læg ét kort på en ensfarvet overflade med navn og samlernummer synligt.",
+    takePhoto: "Tag et billede",
+    choosePicture: "Vælg et billede",
+    scannerPrivacy:
+      "Genkendelsen kører på denne enhed. Dit billede uploades ikke til Cardédex.",
+    scannerPreparing: "Forbereder billedet…",
+    scannerReading: "Læser kortet… {progress}%",
+    scannerSearching: "Søger efter matchende kort…",
+    scannerMatches: "Mulige matches",
+    scannerOwned: "Ejet · {count}",
+    scannerWanted: "Ønsket",
+    scannerNotSaved: "Ikke i samlingen",
+    scannerNoPokemon:
+      "Jeg kunne ikke læse Pokémon-navnet. Prøv igen med kortet tættere på, lige og uden genskin.",
+    scannerNoCards:
+      "Jeg fandt {name}, men kunne ikke matche det præcise kort. Prøv et tydeligere billede af samlernummeret.",
+    scannerUnavailable:
+      "Scanneren kunne ikke starte. Kontrollér forbindelsen, og prøv igen.",
+    scannerOpenCard: "Åbn kort",
   },
 };
 const t = (key, values = {}) =>

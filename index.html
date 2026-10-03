@@ -46,6 +46,9 @@
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" /></svg>
           <label class="sr-only" for="searchInput">Search Pokémon</label>
           <input id="searchInput" type="search" role="combobox" aria-autocomplete="list" aria-controls="searchSuggestions" aria-expanded="false" autocomplete="off" placeholder="Search by name or Pokédex number…" />
+          <button class="scan-button" id="cardScannerOpen" type="button" aria-label="Scan a Pokémon card" title="Scan a Pokémon card">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v10H4V8Z" /><circle cx="12" cy="13" r="3.25" /></svg>
+          </button>
           <div class="search-suggestions" id="searchSuggestions" role="listbox" hidden></div>
         </form>
         <div class="quick-picks" aria-label="Popular searches">
@@ -129,6 +132,33 @@
       <div class="card-detail-dialog" id="cardDetailContent"></div>
     </dialog>
 
+    <dialog class="scanner-dialog" id="scannerDialog">
+      <button class="dialog-close" id="scannerClose" aria-label="Close card scanner">×</button>
+      <div class="scanner-content">
+        <span class="section-kicker" id="scannerKicker">Card scanner</span>
+        <h2 id="scannerTitle">Scan a Pokémon card</h2>
+        <p id="scannerIntro">Place one card on a plain surface with its name and collector number visible.</p>
+        <div class="scanner-actions">
+          <button type="button" id="scannerCamera">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v10H4V8Z" /><circle cx="12" cy="13" r="3.25" /></svg>
+            <span id="scannerCameraLabel">Take photo</span>
+          </button>
+          <button type="button" id="scannerGallery">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m6 17 4-4 3 3 2-2 3 3" /></svg>
+            <span id="scannerGalleryLabel">Choose picture</span>
+          </button>
+        </div>
+        <input type="file" id="scannerCameraInput" accept="image/*" capture="environment" hidden />
+        <input type="file" id="scannerGalleryInput" accept="image/*" hidden />
+        <div class="scanner-workspace" id="scannerWorkspace" hidden>
+          <div class="scanner-preview"><img id="scannerPreview" alt="Card selected for scanning" /></div>
+          <div class="scanner-progress" id="scannerProgress" role="status" aria-live="polite"></div>
+        </div>
+        <div class="scanner-results" id="scannerResults" aria-live="polite"></div>
+        <p class="scanner-privacy" id="scannerPrivacy">Recognition runs on this device. Your picture is not uploaded to Cardédex.</p>
+      </div>
+    </dialog>
+
     <dialog class="collection-dialog" id="collectionDialog">
       <button class="dialog-close" id="collectionClose" aria-label="Close collection">×</button>
       <div class="collection-content">
@@ -170,6 +200,7 @@
     <script src="js/catalog.js"></script>
     <script src="js/cards.js"></script>
     <script src="js/collection.js"></script>
+    <script src="js/scanner.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

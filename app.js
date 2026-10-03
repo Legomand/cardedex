@@ -78,6 +78,7 @@ function applySettings() {
   setLabel("#drawerClose", "closeDetails");
   setLabel("#lightboxClose", "closePreview");
   setLabel("#collectionClose", "closeCollection");
+  if (typeof applyScannerLanguage === "function") applyScannerLanguage();
   const pokedexOption = mainOrderFilter.querySelector('[value="pokedex"]');
   if (pokedexOption) pokedexOption.textContent = t("pokedexNumber");
   if (mainSeriesFilter.options[0]) {

@@ -40,6 +40,10 @@ nav a.active::after { content:""; position:absolute; width:4px; height:4px; bord
 .search-shell svg { width:21px; fill:none; stroke:var(--ink); stroke-width:1.7; }
 .search-shell input { min-width:0; flex:1; border:0; outline:0; background:none; padding:0 15px; color:var(--ink); }
 .search-shell input::placeholder { color:#9b9f9b; }
+.scan-button { flex:0 0 auto; display:grid; place-items:center; width:42px; height:42px; padding:0; border:1px solid var(--line); border-radius:13px; cursor:pointer; color:var(--on-control); background:var(--control); transition:.2s; }
+.search-shell .scan-button svg { width:21px; height:21px; stroke:currentColor; stroke-width:1.7; fill:none; }
+.scan-button:hover { transform:translateY(-1px); box-shadow:0 8px 16px rgba(25,35,30,.16); }
+.scan-button:focus-visible { outline:3px solid rgba(232,83,63,.25); outline-offset:2px; }
 .search-suggestions { position:absolute; z-index:18; top:calc(100% + 8px); left:0; right:0; max-height:min(420px,55vh); overflow:auto; padding:7px; border:1px solid var(--line); border-radius:16px; background:var(--white); box-shadow:0 22px 55px rgba(20,28,23,.2); text-align:left; }
 .search-suggestions[hidden] { display:none; }
 .search-suggestions button { display:grid; grid-template-columns:48px 1fr auto; align-items:center; gap:11px; width:100%; min-height:56px; padding:5px 11px 5px 7px; border:0; border-radius:11px; cursor:pointer; color:var(--ink); background:transparent; text-align:left; }
@@ -169,6 +173,35 @@ footer p { max-width:510px; color:var(--muted); font-size:10px; text-align:right
 .card-lightbox { width:min(880px,92vw); max-width:880px; max-height:92vh; padding:0; border:0; border-radius:18px; background:var(--paper); overflow:visible; color:var(--ink); }
 .card-lightbox::backdrop { background:rgba(13,18,15,.8); backdrop-filter:blur(8px); }
 .dialog-close { position:absolute; z-index:5; right:-13px; top:-13px; width:35px; height:35px; border:0; border-radius:50%; cursor:pointer; color:#19231e; background:white; font-size:20px; }
+.scanner-dialog { width:min(760px,94vw); max-height:92vh; padding:0; border:0; border-radius:20px; color:var(--ink); background:var(--paper); overflow:visible; }
+.scanner-dialog::backdrop { background:rgba(13,18,15,.78); backdrop-filter:blur(8px); }
+.scanner-content { max-height:92vh; padding:38px; overflow:auto; }
+.scanner-content h2 { margin:6px 0 7px; font:700 36px var(--display); letter-spacing:-1px; }
+.scanner-content>p { margin:0; color:var(--muted); font-size:12px; line-height:1.55; }
+.scanner-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:24px 0 18px; }
+.scanner-actions button { display:flex; align-items:center; justify-content:center; gap:9px; min-height:48px; padding:11px 16px; border:1px solid var(--line); border-radius:13px; cursor:pointer; color:var(--on-control); background:var(--control); font:700 12px var(--body); }
+.scanner-actions button:last-child { color:var(--ink); background:var(--white); }
+.scanner-actions svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7; }
+.scanner-workspace { display:grid; grid-template-columns:130px 1fr; align-items:center; gap:18px; margin:12px 0 20px; padding:12px; border:1px solid var(--line); border-radius:15px; background:var(--white); }
+.scanner-workspace[hidden] { display:none; }
+.scanner-preview { overflow:hidden; aspect-ratio:245/342; border-radius:9px; background:var(--cream); }
+.scanner-preview img { width:100%; height:100%; object-fit:cover; }
+.scanner-progress { color:var(--ink); font-size:12px; line-height:1.55; }
+.scanner-spinner { display:inline-block; width:16px; height:16px; margin-right:9px; border:2px solid var(--line); border-top-color:var(--red); border-radius:50%; vertical-align:-3px; animation:spin .8s linear infinite; }
+.scanner-results h3 { margin:22px 0 10px; font:700 20px var(--display); }
+.scanner-match-grid { display:grid; gap:8px; }
+.scanner-match { display:grid; grid-template-columns:58px minmax(0,1fr) auto; align-items:center; gap:12px; width:100%; padding:8px; border:1px solid var(--line); border-radius:12px; cursor:pointer; color:var(--ink); background:var(--white); text-align:left; }
+.scanner-match:hover { border-color:var(--green); transform:translateY(-1px); }
+.scanner-match img { width:58px; aspect-ratio:245/342; object-fit:contain; border-radius:5px; background:var(--cream); }
+.scanner-match span,.scanner-match strong,.scanner-match small { display:block; min-width:0; }
+.scanner-match strong,.scanner-match small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.scanner-match strong { font:600 13px var(--display); }
+.scanner-match small { margin-top:3px; color:var(--muted); font-size:9px; }
+.scanner-match i { display:inline-block; width:max-content; margin-top:6px; padding:4px 7px; border-radius:8px; color:var(--muted); background:var(--cream); font-size:8px; font-style:normal; font-weight:700; }
+.scanner-match i.owned { color:white; background:var(--green); }
+.scanner-match i.wanted { color:white; background:var(--red); }
+.scanner-match>b { color:var(--muted); font-size:9px; white-space:nowrap; }
+.scanner-content .scanner-privacy { margin-top:18px; font-size:9px; }
 .card-detail-dialog { display:grid; grid-template-columns:42% 58%; max-height:90vh; overflow:auto; }
 .card-detail-art { padding:34px; background:#dde7df; display:grid; align-content:center; }
 .card-detail-art img { width:100%; border-radius:11px; box-shadow:0 22px 45px rgba(0,0,0,.25); }
@@ -252,6 +285,7 @@ body.drawer-open { overflow:hidden; }
 @media (max-width:720px) {
   .site-header{height:70px;padding:0 18px} nav{display:none}.collection-button span{display:none}.collection-button{padding:8px}.round-action{width:34px;height:34px}.hero{padding:75px 20px}.hero h1{font-size:58px;letter-spacing:-3px}.catalog{padding:65px 16px 80px}.catalog-heading{align-items:start}.result-count{display:none}.filter-toolbar{flex-direction:column}.filters{width:100%}.catalog-dropdowns{width:100%;display:grid;grid-template-columns:1fr;gap:10px}.catalog-select{width:100%}.catalog-select>span{display:block;margin:0 0 5px 12px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.catalog-dropdowns select,.catalog-dropdowns .order-filter{width:100%;min-height:48px;padding:11px 42px 11px 15px;border-radius:13px;font-size:16px;font-weight:600}.pocket-toggle{width:max-content;min-height:39px;padding:9px 16px;font-size:12px}.artist-explorer{width:100%;flex-basis:auto}.artist-suggestions{left:-13px;right:auto;width:calc(100% + 26px)}.artist-status,.catalog-filter-status{text-align:left;margin-top:8px}.catalog-filter-status{margin-top:-15px}.pokemon-grid{grid-template-columns:repeat(2,1fr);gap:10px}.pokemon-card{height:270px;padding:14px;border-radius:16px}.pokemon-card::before{width:160px;height:160px;top:50px}.image-stage{height:173px}.image-stage img{width:145px;height:145px}.card-copy{padding-top:12px}.card-copy strong{font-size:16px}.card-copy>span{display:none}.drawer{width:100vw}.detail-info{padding:38px 25px}.detail-info h2{font-size:46px}.detail-art{min-height:300px}.cards-section{padding:38px 18px 60px}.cards-header{align-items:start;flex-direction:column}.tcg-grid{grid-template-columns:repeat(2,1fr)}footer{flex-direction:column;gap:18px}footer p{text-align:center}.quick-picks{display:none}.card-detail-dialog{grid-template-columns:1fr}.card-detail-art{padding:28px 65px}.card-detail-copy{padding:30px 24px}.favorite-list{grid-template-columns:repeat(3,1fr)}.collection-content{padding:35px 22px}.collection-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.collection-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.collection-filters select{flex:1;max-width:none}
   .detail-art img{width:250px;height:250px}
+  .search-shell{height:60px;padding-right:9px}.search-shell input{padding:0 9px}.scan-button{width:42px;height:42px}.scanner-content{padding:30px 20px}.scanner-content h2{font-size:30px}.scanner-actions{grid-template-columns:1fr}.scanner-workspace{grid-template-columns:90px 1fr}.scanner-match{grid-template-columns:52px minmax(0,1fr)}.scanner-match img{width:52px}.scanner-match>b{display:none}
 }
 @media (max-width:390px) { .hero h1{font-size:50px}.pokemon-card{height:250px}.image-stage{height:155px}.image-stage img{width:130px;height:130px}.facts{grid-template-columns:repeat(2,1fr)} }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important} }
