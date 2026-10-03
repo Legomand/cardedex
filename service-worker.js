@@ -1,4 +1,4 @@
-const CACHE_NAME='cardedex-shell-v16';
+const CACHE_NAME='cardedex-shell-v32';
 const APP_SHELL=['./','./index.html','./styles.css','./js/core.js','./js/catalog.js','./js/cards.js','./js/collection.js','./js/scanner.js','./app.js','./manifest.webmanifest','./assets/icon-192.png','./assets/icon-512.png'];
 
 self.addEventListener('install',event=>{

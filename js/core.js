@@ -298,7 +298,7 @@ const words = {
     closeScanner: "Close card scanner",
     scannerKicker: "Card scanner",
     scannerIntro:
-      "Place one card on a plain surface with its name and collector number visible.",
+      "Fill the frame with one straight card on a plain surface. Keep its name, HP, attacks, and collector number clear.",
     takePhoto: "Take photo",
     choosePicture: "Choose picture",
     scannerPrivacy:
@@ -306,6 +306,7 @@ const words = {
     scannerPreparing: "Preparing the picture…",
     scannerReading: "Reading the card… {progress}%",
     scannerSearching: "Searching for matching cards…",
+    scannerComparing: "Comparing card artwork… {done}/{total}",
     scannerMatches: "Possible matches",
     scannerOwned: "Owned · {count}",
     scannerWanted: "Wanted",
@@ -454,7 +455,7 @@ const words = {
     closeScanner: "Luk kortscanner",
     scannerKicker: "Kortscanner",
     scannerIntro:
-      "Læg ét kort på en ensfarvet overflade med navn og samlernummer synligt.",
+      "Fyld billedet med ét lige kort på en ensfarvet overflade. Hold navn, HP, angreb og samlernummer tydelige.",
     takePhoto: "Tag et billede",
     choosePicture: "Vælg et billede",
     scannerPrivacy:
@@ -462,6 +463,7 @@ const words = {
     scannerPreparing: "Forbereder billedet…",
     scannerReading: "Læser kortet… {progress}%",
     scannerSearching: "Søger efter matchende kort…",
+    scannerComparing: "Sammenligner kortmotiver… {done}/{total}",
     scannerMatches: "Mulige matches",
     scannerOwned: "Ejet · {count}",
     scannerWanted: "Ønsket",
