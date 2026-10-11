@@ -193,7 +193,7 @@ as $$
   )
   from public.share_links s
   join public.profiles p on p.id = s.owner_id
-  where s.token_hash = digest(raw_token, 'sha256')
+  where s.token_hash = extensions.digest(raw_token, 'sha256')
     and s.revoked_at is null
     and (s.expires_at is null or s.expires_at > now())
   limit 1;

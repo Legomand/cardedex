@@ -14,8 +14,17 @@ const collectionSource = fs.readFileSync(
 );
 const coreSource = fs.readFileSync(path.join(root, "js/core.js"), "utf8");
 const cardsSource = fs.readFileSync(path.join(root, "js/cards.js"), "utf8");
+const authSource = fs.readFileSync(path.join(root, "js/auth.js"), "utf8");
 const syncSource = fs.readFileSync(path.join(root, "js/sync.js"), "utf8");
 const tradeSource = fs.readFileSync(path.join(root, "js/trade.js"), "utf8");
+const accountSyncSql = fs.readFileSync(
+  path.join(root, "backend/supabase-account-sync.sql"),
+  "utf8",
+);
+const accountSyncMigration = fs.readFileSync(
+  path.join(root, "supabase/migrations/20261011220000_account_sync.sql"),
+  "utf8",
+);
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
 function loadScanner() {
@@ -253,7 +262,7 @@ function loadTrade(overrides = {}) {
   return context;
 }
 
-test("Trade Binder controls and read-only import contract are present", () => {
+test("Trade Binder and private account sync contracts are present", () => {
   for (const id of [
     "tradeBinderTitle",
     "tradeShareScope",
@@ -265,7 +274,15 @@ test("Trade Binder controls and read-only import contract are present", () => {
   }
   assert.match(tradeSource, /cardedex-trade-binder\/v1/);
   assert.match(syncSource, /cardedex-user-data/);
-  assert.match(syncSource, /server sync is not connected/);
+  assert.match(syncSource, /sync_collection_snapshot/);
+  assert.match(syncSource, /Sync paused · choose a collection below/);
+  assert.match(authSource, /signInWithOtp/);
+  assert.match(authSource, /flowType: "pkce"/);
+  assert.match(accountSyncSql, /security invoker/);
+  assert.match(accountSyncSql, /v_current_revision <> p_base_revision/);
+  assert.match(accountSyncSql, /grant execute[\s\S]+to authenticated/);
+  assert.doesNotMatch(accountSyncSql, /grant execute[\s\S]+to anon/);
+  assert.equal(accountSyncMigration, accountSyncSql);
 });
 
 test("Trade Binder comparison finds wanted cards on both sides", () => {

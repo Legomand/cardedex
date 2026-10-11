@@ -262,16 +262,43 @@ footer p { max-width:510px; color:var(--muted); font-size:10px; text-align:right
 .collection-stats span { display:block; overflow-wrap:anywhere; color:var(--muted); font-size:9px; text-transform:uppercase; }
 .collection-tools { display:flex; gap:8px; }
 .collection-tools button { border:0; border-radius:9px; padding:10px 13px; cursor:pointer; color:var(--on-control); background:var(--control); font-size:10px; font-weight:700; }
-.sync-panel { display:flex; align-items:center; justify-content:space-between; gap:18px; margin:20px 0 4px; padding:15px 17px; border:1px solid var(--line); border-radius:14px; background:var(--white); }
+.account-panel { display:grid; gap:13px; margin:20px 0 10px; padding:17px; border:1px solid var(--line); border-radius:14px; background:var(--white); }
+.account-heading { display:flex; align-items:start; justify-content:space-between; gap:15px; }
+.account-heading strong,.account-heading small { display:block; }
+.account-heading strong { font-size:12px; }
+.account-heading small { margin-top:4px; color:var(--muted); font-size:9px; line-height:1.5; }
+.account-badge { flex:0 0 auto; padding:6px 9px; border-radius:99px; color:var(--muted); background:var(--cream); font-size:8px; font-weight:700; }
+.account-badge.active { color:white; background:var(--green); }
+.account-sign-in { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:8px; }
+.account-sign-in label { display:grid; gap:5px; color:var(--muted); font-size:8px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+.account-sign-in input { min-width:0; padding:10px 11px; border:1px solid var(--line); border-radius:9px; outline:0; color:var(--ink); background:var(--paper); font:11px var(--body); text-transform:none; }
+.account-sign-in input:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(75,113,88,.12); }
+.account-sign-in button,.account-signed-in button,.sync-choice button { min-height:37px; padding:9px 12px; border:0; border-radius:9px; cursor:pointer; color:var(--on-control); background:var(--control); font-size:10px; font-weight:700; }
+.account-sign-in button:disabled,.account-signed-in button:disabled { cursor:wait; opacity:.55; }
+.account-signed-in { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.account-signed-in[hidden],.account-sign-in[hidden] { display:none; }
+.account-signed-in span { overflow:hidden; color:var(--muted); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.account-message { min-height:1.2em; margin:0; color:var(--green); font-size:9px; }
+.account-message.error { color:var(--red); }
+.sync-panel { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:18px; margin:20px 0 4px; padding:15px 17px; border:1px solid var(--line); border-radius:14px; background:var(--white); }
 .sync-panel-copy { display:flex; align-items:center; gap:11px; min-width:0; }
 .sync-panel-copy div { min-width:0; }
 .sync-panel-copy strong,.sync-panel-copy small { display:block; }
 .sync-panel-copy strong { font-size:11px; }
 .sync-panel-copy small { margin-top:3px; overflow:hidden; color:var(--muted); font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
 .sync-dot { width:10px; height:10px; flex:0 0 auto; border-radius:50%; background:#d49a38; box-shadow:0 0 0 4px rgba(212,154,56,.15); }
+.sync-dot.online { background:var(--green); box-shadow:0 0 0 4px rgba(75,113,88,.15); }
+.sync-dot.error { background:var(--red); box-shadow:0 0 0 4px rgba(190,55,55,.15); }
 .sync-panel label { display:grid; gap:5px; flex:0 0 min(260px,42%); color:var(--muted); font-size:8px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
 .sync-panel input { min-width:0; padding:9px 11px; border:1px solid var(--line); border-radius:9px; outline:0; color:var(--ink); background:var(--paper); font:11px var(--body); text-transform:none; }
 .sync-panel input:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(75,113,88,.12); }
+.sync-choice { flex:1 0 100%; padding-top:13px; border-top:1px solid var(--line); }
+.sync-choice[hidden] { display:none; }
+.sync-choice strong,.sync-choice small { display:block; }
+.sync-choice strong { font-size:10px; }
+.sync-choice small { margin-top:4px; color:var(--muted); font-size:9px; line-height:1.5; }
+.sync-choice>div { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
+.sync-choice button:last-child { color:var(--ink); background:var(--cream); }
 .completion-tracker { margin-top:28px; padding:22px; border:1px solid var(--line); border-radius:16px; background:var(--white); }
 .completion-heading { display:flex; align-items:end; justify-content:space-between; gap:18px; }
 .completion-heading h3 { margin:5px 0 0; font:700 28px var(--display); }
@@ -392,7 +419,7 @@ body.drawer-open { overflow:hidden; }
 @media (max-width:720px) {
   .site-header{height:70px;padding:0 18px} nav{display:none}.collection-button span{display:none}.collection-button{padding:8px}.round-action{width:34px;height:34px}.hero{padding:75px 20px}.hero h1{font-size:58px;letter-spacing:-3px}.catalog{padding:65px 16px 80px}.catalog-heading{align-items:start}.result-count{display:none}.filter-toolbar{flex-direction:column}.filters{width:100%}.catalog-dropdowns{width:100%;display:grid;grid-template-columns:1fr;gap:10px}.catalog-select{width:100%}.catalog-select>span{display:block;margin:0 0 5px 12px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.catalog-dropdowns select,.catalog-dropdowns .order-filter{width:100%;min-height:48px;padding:11px 42px 11px 15px;border-radius:13px;font-size:16px;font-weight:600}.pocket-toggle{width:max-content;min-height:39px;padding:9px 16px;font-size:12px}.artist-explorer{width:100%;flex-basis:auto}.artist-suggestions{left:-13px;right:auto;width:calc(100% + 26px)}.artist-status,.catalog-filter-status{text-align:left;margin-top:8px}.catalog-filter-status{margin-top:-15px}.pokemon-grid{grid-template-columns:repeat(2,1fr);gap:10px}.pokemon-card{height:270px;padding:14px;border-radius:16px}.pokemon-card::before{width:160px;height:160px;top:50px}.image-stage{height:173px}.image-stage img{width:145px;height:145px}.card-copy{padding-top:12px}.card-copy strong{font-size:16px}.card-copy>span{display:none}.drawer{width:100vw}.detail-info{padding:38px 25px}.detail-info h2{font-size:46px}.detail-art{min-height:300px}.cards-section{padding:38px 18px 60px}.cards-header{align-items:start;flex-direction:column}.tcg-grid{grid-template-columns:repeat(2,1fr)}footer{flex-direction:column;gap:18px}footer p{text-align:center}.quick-picks{display:none}.card-detail-dialog{grid-template-columns:1fr}.card-detail-art{padding:28px 65px}.card-detail-copy{padding:30px 24px}.favorite-list{grid-template-columns:repeat(3,1fr)}.collection-content{padding:35px 22px}.collection-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.collection-card-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.collection-filters select{flex:1;max-width:none}
   .detail-art img{width:250px;height:250px}
-  .search-shell{height:60px;padding-right:9px}.search-shell input{padding:0 9px}.scan-button{width:42px;height:42px}.scanner-content{padding:30px 20px}.scanner-content h2{font-size:30px}.scanner-actions{grid-template-columns:1fr}.scanner-layout{align-items:stretch;flex-direction:column}.scanner-layout select{width:100%}.scanner-workspace{grid-template-columns:90px 1fr}.scanner-match{grid-template-columns:52px minmax(0,1fr)}.scanner-match img{width:52px}.scanner-match>b{display:none}.binder-review-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.completion-tracker{padding:17px}.completion-heading{align-items:start;flex-direction:column;gap:5px}.completion-controls{grid-template-columns:1fr}.completion-item{grid-template-columns:1fr}.completion-item-meta{justify-content:space-between}.sync-panel{align-items:stretch;flex-direction:column}.sync-panel label{flex-basis:auto}.trade-binder{padding:17px}.trade-heading{align-items:start;flex-direction:column;gap:8px}.trade-share-controls{grid-template-columns:1fr}.trade-selected-cards>div{grid-template-columns:1fr}.trade-summary{grid-template-columns:repeat(2,1fr)}.trade-match-grid{grid-template-columns:1fr}.trade-inspector-toolbar{align-items:stretch;flex-direction:column}
+  .search-shell{height:60px;padding-right:9px}.search-shell input{padding:0 9px}.scan-button{width:42px;height:42px}.scanner-content{padding:30px 20px}.scanner-content h2{font-size:30px}.scanner-actions{grid-template-columns:1fr}.scanner-layout{align-items:stretch;flex-direction:column}.scanner-layout select{width:100%}.scanner-workspace{grid-template-columns:90px 1fr}.scanner-match{grid-template-columns:52px minmax(0,1fr)}.scanner-match img{width:52px}.scanner-match>b{display:none}.binder-review-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.completion-tracker{padding:17px}.completion-heading{align-items:start;flex-direction:column;gap:5px}.completion-controls{grid-template-columns:1fr}.completion-item{grid-template-columns:1fr}.completion-item-meta{justify-content:space-between}.account-heading{align-items:stretch;flex-direction:column}.account-badge{width:max-content}.account-sign-in{grid-template-columns:1fr}.sync-panel{align-items:stretch;flex-direction:column}.sync-panel label{flex-basis:auto}.trade-binder{padding:17px}.trade-heading{align-items:start;flex-direction:column;gap:8px}.trade-share-controls{grid-template-columns:1fr}.trade-selected-cards>div{grid-template-columns:1fr}.trade-summary{grid-template-columns:repeat(2,1fr)}.trade-match-grid{grid-template-columns:1fr}.trade-inspector-toolbar{align-items:stretch;flex-direction:column}
 }
 @media (max-width:390px) { .hero h1{font-size:50px}.pokemon-card{height:250px}.image-stage{height:155px}.image-stage img{width:130px;height:130px}.facts{grid-template-columns:repeat(2,1fr)} }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important} }

@@ -184,12 +184,32 @@
         <span class="section-kicker" id="collectionStorageKicker">Local collection preview</span>
         <h2>My collection</h2>
         <p class="collection-intro">This development build keeps a durable local cache while the managed account backend is prepared.</p>
+        <section class="account-panel" aria-labelledby="accountTitle">
+          <div class="account-heading">
+            <div><strong id="accountTitle">Cardedex account</strong><small id="accountDescription">Sign in to keep your collection synchronized across devices.</small></div>
+            <span class="account-badge" id="accountBadge">Signed out</span>
+          </div>
+          <form class="account-sign-in" id="accountSignInForm">
+            <label><span id="accountEmailLabel">Email address</span><input id="accountEmail" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+            <button type="submit" id="accountSignIn">Email me a sign-in link</button>
+          </form>
+          <div class="account-signed-in" id="accountSignedIn" hidden>
+            <span id="accountIdentity"></span>
+            <button type="button" id="accountSignOut">Sign out</button>
+          </div>
+          <p class="account-message" id="accountMessage" role="status" aria-live="polite"></p>
+        </section>
         <section class="sync-panel" aria-labelledby="syncTitle">
           <div class="sync-panel-copy">
             <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
             <div><strong id="syncTitle">Local sync preview</strong><small id="syncStatus">Saved locally · server sync is not connected</small></div>
           </div>
           <label><span id="collectorNameLabel">Collector name</span><input id="collectorName" maxlength="40" autocomplete="nickname" placeholder="Your display name" /></label>
+          <div class="sync-choice" id="syncChoice" hidden>
+            <strong id="syncChoiceTitle">Choose which collection to keep</strong>
+            <small id="syncChoiceDescription"></small>
+            <div><button type="button" id="syncUseDevice">Use this device</button><button type="button" id="syncUseAccount">Use account copy</button></div>
+          </div>
         </section>
         <div class="collection-stats" id="collectionStats"></div>
         <div class="collection-tools">
@@ -259,10 +279,13 @@
         <span class="card-copy"><strong></strong><span>View cards <i>↗</i></span></span>
       </button>
     </template>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js" crossorigin="anonymous"></script>
+    <script src="js/backend-config.js"></script>
     <script src="js/core.js"></script>
     <script src="js/catalog.js"></script>
     <script src="js/cards.js"></script>
     <script src="js/collection.js"></script>
+    <script src="js/auth.js"></script>
     <script src="js/sync.js"></script>
     <script src="js/trade.js"></script>
     <script src="js/scanner.js"></script>

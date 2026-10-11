@@ -9,6 +9,11 @@ idempotent sync operations, revocable Trade Binder links, and trade proposals.
 All browser-facing tables have row-level security. Public Trade Binder reads go
 through a token-limited function rather than anonymous table access.
 
+`supabase-account-sync.sql` is the next migration. It adds the private JSON
+snapshot used by the current browser client, creates new-user profile/collection
+records, and exposes one authenticated, revision-checked sync function. Apply it
+only after the base schema.
+
 Before production:
 
 1. Create separate development and production Supabase projects.

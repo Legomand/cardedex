@@ -24,15 +24,15 @@ local sync scaffolding, and Trade Binder previews.
 - Entire runtime is browser-side. It has no Codex, AI Army, private server, or
   tailnet dependency. Network access is still required for the existing CDN
   Tesseract loader and TCGdex catalogue/image lookups.
-- Local sync-preview contract with an IndexedDB snapshot and idempotent-style
-  operation journal. It is deliberately labeled local-only until a managed
-  account backend is configured.
+- Passwordless Supabase accounts with an IndexedDB snapshot and operation
+  journal, authenticated private sync, offline retry, idempotent operation IDs,
+  server revisions, and an explicit conflict choice.
 - Trade Binder JSON export/import with all, duplicate-only, or selected-card
   scopes; optional wishlist matching; expiry validation; read-only inspection;
   two-way wanted-card comparison; and draft trade-proposal export.
-- A Supabase/PostgreSQL schema draft under `backend/` with row-level security,
-  sync operations, revocable share-link records, and trade proposals. It has
-  not been applied to any remote service and contains no credentials.
+- A Supabase/PostgreSQL schema under `backend/` with row-level security,
+  account bootstrap, private snapshot sync, revocable share-link records, and
+  trade proposals. The browser configuration contains only a publishable key.
 
 ## Deliberately not included yet
 
@@ -43,9 +43,8 @@ local sync scaffolding, and Trade Binder previews.
 - Persistence/export of the scan-session JSON after the review is complete.
 - Shadowless and other specialist historical print runs are not consistently
   represented by TCGdex and are therefore not claimed by master-set totals.
-- Actual accounts, cross-device synchronization, hosted share URLs/QR codes,
-  revocation, server-side rate limits, and automatic managed backups. The local
-  preview proves the UI and data contracts without pretending these exist.
+- Hosted Trade Binder URLs/QR codes, share revocation UI, trade proposals,
+  server-side public-link rate limits, and automatic managed backups.
 
 ## Validate
 
