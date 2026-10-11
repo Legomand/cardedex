@@ -449,7 +449,7 @@ function cardPrintVariantControl(card, status) {
   }
   const selected = selectedPrintVariant(card);
   return `<label class="card-print-variant">${
-    t("print")
+    t("primaryPrint")
   }<select data-print-variant>${
     options.map((option) =>
       `<option value="${option}" ${option === selected ? "selected" : ""}>${
@@ -457,6 +457,31 @@ function cardPrintVariantControl(card, status) {
       }</option>`
     ).join("")
   }</select></label>`;
+}
+function ownedPrintVariants(card) {
+  const available = printVariantOptions(card);
+  const saved = Array.isArray(state.cardOwnedVariants[card.id])
+    ? state.cardOwnedVariants[card.id].map(canonicalPrintVariant)
+    : [];
+  const valid = [...new Set(saved.filter((variant) =>
+    available.includes(variant)
+  ))];
+  if (valid.length) return valid;
+  const fallback = selectedPrintVariant(card);
+  return available.includes(fallback) ? [fallback] : [];
+}
+function cardOwnedVariantsControl(card, status) {
+  if (status !== "owned") return "";
+  const options = printVariantOptions(card);
+  if (options.length < 2) return "";
+  const owned = new Set(ownedPrintVariants(card));
+  return `<fieldset class="card-owned-variants"><legend>${
+    t("ownedPrintings")
+  }</legend>${options.map((option) =>
+    `<label><input type="checkbox" data-owned-variant="${escapeHtml(option)}" ${
+      owned.has(option) ? "checked" : ""
+    }> ${escapeHtml(printVariantLabel(option))}</label>`
+  ).join("")}</fieldset>`;
 }
 async function hydrateOwnedCard(id) {
   const targets = [...state.cards, ...state.collectionCards].filter((card) =>
@@ -473,21 +498,48 @@ async function hydrateOwnedCard(id) {
     if (state.cardStates[id] === "owned" && !state.cardPrintVariants[id]) {
       state.cardPrintVariants[id] = selectedPrintVariant(full);
     }
+    if (state.cardStates[id] === "owned" && !state.cardOwnedVariants[id]) {
+      state.cardOwnedVariants[id] = [selectedPrintVariant(full)];
+    }
     saveUser();
     renderCards();
     if (collectionDialog.open) {
       renderCollectionSummary();
+      renderCompletionTracker();
       populateCollectionFilters();
       renderCollectionCards();
     }
   } catch {}
 }
 function setPrintVariant(id, variant) {
-  state.cardPrintVariants[id] = canonicalPrintVariant(variant);
+  const canonical = canonicalPrintVariant(variant);
+  state.cardPrintVariants[id] = canonical;
+  const owned = new Set(state.cardOwnedVariants[id] || []);
+  owned.add(canonical);
+  state.cardOwnedVariants[id] = [...owned];
   saveUser();
   renderCards();
   if (collectionDialog.open) {
     renderCollectionSummary();
+    renderCompletionTracker();
+    renderCollectionCards();
+  }
+}
+function toggleOwnedPrintVariant(id, variant, checked) {
+  const canonical = canonicalPrintVariant(variant);
+  const owned = new Set(state.cardOwnedVariants[id] || []);
+  if (checked) owned.add(canonical);
+  else owned.delete(canonical);
+  if (!owned.size) owned.add(state.cardPrintVariants[id] || canonical);
+  state.cardOwnedVariants[id] = [...owned];
+  if (!owned.has(state.cardPrintVariants[id])) {
+    state.cardPrintVariants[id] = [...owned][0];
+  }
+  saveUser();
+  renderCards();
+  if (collectionDialog.open) {
+    renderCollectionSummary();
+    renderCompletionTracker();
     renderCollectionCards();
   }
 }
@@ -554,6 +606,8 @@ function renderCards() {
     }">✓ ${t("owned")}</button><button data-status="wanted" class="${
       status === "wanted" ? "active" : ""
     }">♥ ${t("wanted")}</button></span>${cardPrintVariantControl(c, status)}${
+      cardOwnedVariantsControl(c, status)
+    }${
       cardQuantity(c.id, status)
     }</article>`;
   }).join("");
@@ -674,6 +728,8 @@ async function openCard(card) {
   }">✓ ${t("owned")}</button><button data-detail-status="wanted" class="${
     status === "wanted" ? "active" : ""
   }">♥ ${t("wanted")}</button></span>${cardPrintVariantControl(full, status)}${
+    cardOwnedVariantsControl(full, status)
+  }${
     cardQuantity(full.id, status)
   }</div><span class="section-kicker">${
     t("printVariants")
@@ -721,11 +777,13 @@ function setCardStatus(id, status) {
     delete state.cardStates[id];
     delete state.cardCounts[id];
     delete state.cardPrintVariants[id];
+    delete state.cardOwnedVariants[id];
   } else if (status === "owned") {
     state.cardCounts[id] = Math.max(1, Number(state.cardCounts[id]) || 1);
   } else {
     delete state.cardCounts[id];
     delete state.cardPrintVariants[id];
+    delete state.cardOwnedVariants[id];
   }
   saveUser();
   renderCards();
@@ -737,8 +795,10 @@ function setCardStatus(id, status) {
       );
     }
     renderCollectionSummary();
+    renderCompletionTracker();
     populateCollectionFilters();
     renderCollectionCards();
+    if (typeof renderTradeBinder === "function") renderTradeBinder();
   }
 }
 function adjustCardCount(id, change) {
@@ -752,6 +812,7 @@ function adjustCardCount(id, change) {
   if (collectionDialog.open) {
     renderCollectionSummary();
     renderCollectionCards();
+    if (typeof renderTradeBinder === "function") renderTradeBinder();
   }
 }
 function toggleFavorite(id) {

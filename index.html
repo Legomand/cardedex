@@ -147,9 +147,28 @@
             <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m6 17 4-4 3 3 2-2 3 3" /></svg>
             <span id="scannerGalleryLabel">Choose picture</span>
           </button>
+          <button type="button" id="scannerBinderCamera">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM9.3 5l1.2-2h3L15 5M8 9h.01M12 9h.01M16 9h.01M8 14h.01M12 14h.01M16 14h.01"/></svg>
+            <span id="scannerBinderCameraLabel">Photograph binder page</span>
+          </button>
+          <button type="button" id="scannerBinderGallery">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 15l4-4 3 3 2-2 7 7"/></svg>
+            <span id="scannerBinderGalleryLabel">Choose binder page</span>
+          </button>
         </div>
+        <label class="scanner-layout" id="scannerLayoutLabel">
+          <span>Binder layout</span>
+          <select id="scannerBinderLayout">
+            <option value="auto">Auto detect</option>
+            <option value="3x3">3 × 3 · 9 cards</option>
+            <option value="3x4">3 × 4 · 12 cards</option>
+            <option value="4x4">4 × 4 · 16 cards</option>
+          </select>
+        </label>
         <input type="file" id="scannerCameraInput" accept="image/*" capture="environment" hidden />
         <input type="file" id="scannerGalleryInput" accept="image/*" hidden />
+        <input type="file" id="scannerBinderCameraInput" accept="image/*" capture="environment" hidden />
+        <input type="file" id="scannerBinderGalleryInput" accept="image/*" hidden />
         <div class="scanner-workspace" id="scannerWorkspace" hidden>
           <div class="scanner-preview"><img id="scannerPreview" alt="Card selected for scanning" /></div>
           <div class="scanner-progress" id="scannerProgress" role="status" aria-live="polite"></div>
@@ -162,15 +181,59 @@
     <dialog class="collection-dialog" id="collectionDialog">
       <button class="dialog-close" id="collectionClose" aria-label="Close collection">×</button>
       <div class="collection-content">
-        <span class="section-kicker">Saved on this device</span>
+        <span class="section-kicker" id="collectionStorageKicker">Local collection preview</span>
         <h2>My collection</h2>
-        <p class="collection-intro">Your favorites and card checklist stay private on this computer.</p>
+        <p class="collection-intro">This development build keeps a durable local cache while the managed account backend is prepared.</p>
+        <section class="sync-panel" aria-labelledby="syncTitle">
+          <div class="sync-panel-copy">
+            <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
+            <div><strong id="syncTitle">Local sync preview</strong><small id="syncStatus">Saved locally · server sync is not connected</small></div>
+          </div>
+          <label><span id="collectorNameLabel">Collector name</span><input id="collectorName" maxlength="40" autocomplete="nickname" placeholder="Your display name" /></label>
+        </section>
         <div class="collection-stats" id="collectionStats"></div>
         <div class="collection-tools">
           <button id="exportCollection">Export backup</button>
           <button id="importCollection">Import backup</button>
           <input type="file" id="importFile" accept="application/json" hidden />
         </div>
+        <section class="completion-tracker" aria-labelledby="completionTitle">
+          <div class="completion-heading">
+            <div>
+              <span class="section-kicker" id="completionKicker">Completion goals</span>
+              <h3 id="completionTitle">Sets &amp; series</h3>
+            </div>
+            <div class="completion-mode"><small id="completionScope">Includes secret cards</small><select id="completionMode" aria-label="Completion mode"><option value="set">Any printing</option><option value="master">Every known printing</option></select></div>
+          </div>
+          <div class="completion-controls">
+            <label><span id="completionSeriesLabel">Series</span><span class="completion-control"><select id="completionSeriesSelect"></select><button type="button" data-track-completion="series">Track</button></span></label>
+            <label><span id="completionSetLabel">Set</span><span class="completion-control"><select id="completionSetSelect"></select><button type="button" data-track-completion="set">Track</button></span></label>
+          </div>
+          <div class="completion-list" id="completionList"></div>
+        </section>
+        <section class="trade-binder" aria-labelledby="tradeBinderTitle">
+          <div class="trade-heading">
+            <div>
+              <span class="section-kicker" id="tradeBinderKicker">Collection sharing</span>
+              <h3 id="tradeBinderTitle">Trade Binder</h3>
+            </div>
+            <span class="trade-readonly" id="tradeReadonlyLabel">Imported binders stay read-only</span>
+          </div>
+          <p id="tradeBinderIntro">Export a private collection snapshot, inspect someone else's binder, and find useful trades without merging either collection.</p>
+          <div class="trade-share-controls">
+            <label><span id="tradeScopeLabel">Share</span><select id="tradeShareScope"><option value="all">Owned collection</option><option value="duplicates">Duplicates only</option><option value="selected">Selected cards</option></select></label>
+            <label><span id="tradeExpiryLabel">Expires</span><select id="tradeShareExpiry"><option value="1">In 1 day</option><option value="7" selected>In 7 days</option><option value="30">In 30 days</option><option value="0">No expiry</option></select></label>
+            <label class="trade-wishlist-toggle"><input id="tradeIncludeWishlist" type="checkbox" checked /><span id="tradeWishlistLabel">Include wishlist for matching</span></label>
+          </div>
+          <div class="trade-selected-cards" id="tradeSelectedCards" hidden></div>
+          <div class="trade-actions">
+            <button type="button" id="tradeExportShare">Export my Trade Binder</button>
+            <button type="button" id="tradeImportShare">Inspect someone else's</button>
+            <input type="file" id="tradeImportFile" accept="application/json,.json" hidden />
+          </div>
+          <p class="trade-message" id="tradeMessage" role="status" aria-live="polite"></p>
+          <div class="trade-inspector" id="tradeInspector"></div>
+        </section>
         <section class="collection-browser" aria-labelledby="collectionCardsTitle">
           <div class="collection-browser-heading">
             <div>
@@ -200,6 +263,8 @@
     <script src="js/catalog.js"></script>
     <script src="js/cards.js"></script>
     <script src="js/collection.js"></script>
+    <script src="js/sync.js"></script>
+    <script src="js/trade.js"></script>
     <script src="js/scanner.js"></script>
     <script src="app.js"></script>
   </body>

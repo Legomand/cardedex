@@ -2,6 +2,13 @@ const scannerDialog = document.querySelector("#scannerDialog");
 const scannerOpen = document.querySelector("#cardScannerOpen");
 const scannerCameraInput = document.querySelector("#scannerCameraInput");
 const scannerGalleryInput = document.querySelector("#scannerGalleryInput");
+const scannerBinderCameraInput = document.querySelector(
+  "#scannerBinderCameraInput",
+);
+const scannerBinderGalleryInput = document.querySelector(
+  "#scannerBinderGalleryInput",
+);
+const scannerBinderLayout = document.querySelector("#scannerBinderLayout");
 const scannerWorkspace = document.querySelector("#scannerWorkspace");
 const scannerPreview = document.querySelector("#scannerPreview");
 const scannerProgress = document.querySelector("#scannerProgress");
@@ -10,6 +17,7 @@ const scannerResults = document.querySelector("#scannerResults");
 let scannerLibraryPromise;
 let scannerPreviewUrl;
 let scannerMatches = [];
+let scannerBinderSession = null;
 
 function applyScannerLanguage() {
   const text = (selector, key) => {
@@ -27,6 +35,9 @@ function applyScannerLanguage() {
   text("#scannerIntro", "scannerIntro");
   text("#scannerCameraLabel", "takePhoto");
   text("#scannerGalleryLabel", "choosePicture");
+  text("#scannerBinderCameraLabel", "scanBinderPhoto");
+  text("#scannerBinderGalleryLabel", "chooseBinderPhoto");
+  text("#scannerLayoutLabel > span", "binderLayout");
   text("#scannerPrivacy", "scannerPrivacy");
 }
 
@@ -740,7 +751,7 @@ function renderScannerResults(cards) {
   }</div>`;
 }
 
-async function recognizeScannerImage(Tesseract, image) {
+async function recognizeScannerImage(Tesseract, image, sharedWorker = null) {
   const regions = [
     scannerImageRegion(image, 0, 0.17, 1.35),
     scannerImageRegion(image, 0.16, 0.5, 1.3),
@@ -748,7 +759,8 @@ async function recognizeScannerImage(Tesseract, image) {
     scannerImageRegion(image, 0.74, 1, 1.7),
   ];
   let pass = 0;
-  const worker = await Tesseract.createWorker("eng", 1, {
+  const ownsWorker = !sharedWorker;
+  const worker = sharedWorker || await Tesseract.createWorker("eng", 1, {
     logger(message) {
       if (message.status !== "recognizing text") return;
       const progress = Math.round(
@@ -898,12 +910,14 @@ async function recognizeScannerImage(Tesseract, image) {
       fullText,
     };
   } finally {
-    await worker.terminate();
+    if (ownsWorker) await worker.terminate();
   }
 }
 
 async function scanCardPicture(file) {
   if (!file?.type.startsWith("image/")) return;
+  scannerBinderSession = null;
+  scannerPreview.parentElement.style.aspectRatio = "245/342";
   scannerDialog.setAttribute("aria-busy", "true");
   scannerDialog.querySelectorAll(".scanner-actions button").forEach(
     (button) => {
@@ -1029,6 +1043,592 @@ async function scanCardPicture(file) {
   }
 }
 
+function scannerBinderLayoutFor(page, requested = "auto") {
+  if (requested === "3x3") return { columns: 3, rows: 3, id: "3x3" };
+  if (requested === "3x4") return { columns: 3, rows: 4, id: "3x4" };
+  if (requested === "4x4") return { columns: 4, rows: 4, id: "4x4" };
+  if (page.scannerBinderLayout) return page.scannerBinderLayout;
+  const tallness = page.height / page.width;
+  return tallness > 1.62
+    ? { columns: 3, rows: 4, id: "3x4" }
+    : { columns: 3, rows: 3, id: "3x3" };
+}
+
+function scannerBinderMedian(values) {
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.floor(sorted.length / 2)] || 0;
+}
+
+function scannerBinderLineRuns(values, threshold) {
+  const runs = [];
+  let start = null;
+  for (let index = 0; index <= values.length; index++) {
+    if (index < values.length && values[index] >= threshold) {
+      if (start === null) start = index;
+      continue;
+    }
+    if (start !== null) {
+      if (runs.length && start - runs.at(-1).end <= 2) {
+        runs.at(-1).end = index - 1;
+        runs.at(-1).center = (runs.at(-1).start + index - 1) / 2;
+      } else {
+        runs.push({
+          start,
+          end: index - 1,
+          center: (start + index - 1) / 2,
+        });
+      }
+      start = null;
+    }
+  }
+  return runs;
+}
+
+function scannerBinderRegularRuns(runs, minimumGap) {
+  if (runs.length < 3) return [];
+  const gaps = runs.slice(1).map((run, index) =>
+    run.center - runs[index].center
+  ).filter((gap) => gap >= minimumGap);
+  const typical = scannerBinderMedian(gaps);
+  if (!typical) return [];
+  let best = [];
+  let current = [runs[0]];
+  for (let index = 1; index < runs.length; index++) {
+    const gap = runs[index].center - runs[index - 1].center;
+    if (gap >= typical * 0.65 && gap <= typical * 1.35) {
+      current.push(runs[index]);
+    } else {
+      if (current.length > best.length) best = current;
+      current = [runs[index]];
+    }
+  }
+  if (current.length > best.length) best = current;
+  return best;
+}
+
+function scannerBinderDetectGridFromPixels(pixels, width, height) {
+  const isDark = (offset) =>
+    pixels[offset] + pixels[offset + 1] + pixels[offset + 2] < 210;
+  const rows = Array.from({ length: height }, (_, y) => {
+    let dark = 0;
+    for (let x = 0; x < width; x++) {
+      if (isDark((y * width + x) * 4)) dark++;
+    }
+    return dark / width;
+  });
+  const horizontal = scannerBinderRegularRuns(
+    scannerBinderLineRuns(rows, 0.68),
+    height * 0.09,
+  );
+  if (horizontal.length < 4) return null;
+  const top = horizontal[0].center;
+  const bottom = horizontal.at(-1).center;
+  const rowSpacing = scannerBinderMedian(
+    horizontal.slice(1).map((run, index) =>
+      run.center - horizontal[index].center
+    ),
+  );
+  const columns = Array.from({ length: width }, (_, x) => {
+    let dark = 0;
+    let samples = 0;
+    for (let y = Math.max(0, Math.floor(top)); y <= Math.min(height - 1, Math.ceil(bottom)); y++) {
+      if (isDark((y * width + x) * 4)) dark++;
+      samples++;
+    }
+    return dark / Math.max(1, samples);
+  });
+  const vertical = scannerBinderRegularRuns(
+    scannerBinderLineRuns(columns, 0.6),
+    width * 0.1,
+  );
+  if (vertical.length < 3) return null;
+  const columnSpacing = scannerBinderMedian(
+    vertical.slice(1).map((run, index) =>
+      run.center - vertical[index].center
+    ),
+  );
+  const detectedRows = Math.round((bottom - top) / rowSpacing);
+  let left = vertical[0].center;
+  if (left > columnSpacing * 0.55) left -= columnSpacing;
+  let right = vertical.at(-1).center;
+  if (width - right > columnSpacing * 0.55) right += columnSpacing;
+  const detectedColumns = Math.round((right - left) / columnSpacing);
+  if (![3, 4].includes(detectedColumns) || ![3, 4].includes(detectedRows)) {
+    return null;
+  }
+  const xPadding = columnSpacing * 0.12;
+  const yPadding = rowSpacing * 0.25;
+  return {
+    layout: {
+      columns: detectedColumns,
+      rows: detectedRows,
+      id: `${detectedColumns}x${detectedRows}`,
+    },
+    bounds: {
+      x: Math.max(0, left - xPadding),
+      y: Math.max(0, top - yPadding),
+      width: Math.min(width, right + xPadding) - Math.max(0, left - xPadding),
+      height: Math.min(height, bottom + yPadding) - Math.max(0, top - yPadding),
+    },
+  };
+}
+
+function scannerBinderDetectGrid(page) {
+  const scale = Math.min(1, 320 / page.height, 220 / page.width);
+  const sample = document.createElement("canvas");
+  sample.width = Math.max(1, Math.round(page.width * scale));
+  sample.height = Math.max(1, Math.round(page.height * scale));
+  const context = sample.getContext("2d", { willReadFrequently: true });
+  context.drawImage(page, 0, 0, sample.width, sample.height);
+  const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
+  const detected = scannerBinderDetectGridFromPixels(
+    pixels,
+    sample.width,
+    sample.height,
+  );
+  if (!detected) return null;
+  detected.bounds.x /= scale;
+  detected.bounds.y /= scale;
+  detected.bounds.width /= scale;
+  detected.bounds.height /= scale;
+  return detected;
+}
+
+function scannerBinderPageCanvas(bitmap) {
+  const rotated = bitmap.width > bitmap.height;
+  const naturalWidth = rotated ? bitmap.height : bitmap.width;
+  const naturalHeight = rotated ? bitmap.width : bitmap.height;
+  const scale = Math.min(1, 2600 / Math.max(naturalWidth, naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(naturalHeight * scale));
+  const context = canvas.getContext("2d", { alpha: false });
+  context.fillStyle = "white";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  if (rotated) {
+    context.translate(canvas.width, 0);
+    context.rotate(Math.PI / 2);
+    context.drawImage(
+      bitmap,
+      0,
+      0,
+      bitmap.width,
+      bitmap.height,
+      0,
+      0,
+      canvas.height,
+      canvas.width,
+    );
+  } else {
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  }
+  const detected = scannerBinderDetectGrid(canvas);
+  if (!detected) return canvas;
+  const cropped = document.createElement("canvas");
+  cropped.width = Math.max(1, Math.round(detected.bounds.width));
+  cropped.height = Math.max(1, Math.round(detected.bounds.height));
+  cropped.getContext("2d", { alpha: false }).drawImage(
+    canvas,
+    detected.bounds.x,
+    detected.bounds.y,
+    detected.bounds.width,
+    detected.bounds.height,
+    0,
+    0,
+    cropped.width,
+    cropped.height,
+  );
+  cropped.scannerBinderLayout = detected.layout;
+  return cropped;
+}
+
+function scannerBinderCrop(page, layout, row, column) {
+  const outerX = page.width * 0.018;
+  const outerY = page.height * 0.018;
+  const usableWidth = page.width - outerX * 2;
+  const usableHeight = page.height - outerY * 2;
+  const cellWidth = usableWidth / layout.columns;
+  const cellHeight = usableHeight / layout.rows;
+  const insetX = cellWidth * 0.025;
+  const insetY = cellHeight * 0.018;
+  const sourceX = outerX + column * cellWidth + insetX;
+  const sourceY = outerY + row * cellHeight + insetY;
+  const sourceWidth = cellWidth - insetX * 2;
+  const sourceHeight = cellHeight - insetY * 2;
+  const ratio = 245 / 342;
+  let cropWidth = sourceWidth;
+  let cropHeight = sourceHeight;
+  let cropX = sourceX;
+  let cropY = sourceY;
+  if (cropWidth / cropHeight > ratio) {
+    cropWidth = cropHeight * ratio;
+    cropX += (sourceWidth - cropWidth) / 2;
+  } else {
+    cropHeight = cropWidth / ratio;
+    cropY += (sourceHeight - cropHeight) / 2;
+  }
+  const canvas = document.createElement("canvas");
+  canvas.width = 900;
+  canvas.height = Math.round(canvas.width / ratio);
+  canvas.getContext("2d", { alpha: false }).drawImage(
+    page,
+    cropX,
+    cropY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
+  return canvas;
+}
+
+function scannerBinderQuality(source) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 48;
+  canvas.height = 67;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.drawImage(source, 0, 0, canvas.width, canvas.height);
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+  let edges = 0;
+  let comparisons = 0;
+  let glare = 0;
+  for (let y = 0; y < canvas.height; y++) {
+    for (let x = 0; x < canvas.width; x++) {
+      const index = (y * canvas.width + x) * 4;
+      const value = (
+        pixels[index] * 0.299 +
+        pixels[index + 1] * 0.587 +
+        pixels[index + 2] * 0.114
+      );
+      const spread = Math.max(
+        pixels[index],
+        pixels[index + 1],
+        pixels[index + 2],
+      ) - Math.min(pixels[index], pixels[index + 1], pixels[index + 2]);
+      if (value > 245 && spread < 14) glare++;
+      if (x) {
+        const left = index - 4;
+        const leftValue = (
+          pixels[left] * 0.299 +
+          pixels[left + 1] * 0.587 +
+          pixels[left + 2] * 0.114
+        );
+        edges += Math.abs(value - leftValue);
+        comparisons++;
+      }
+      if (y) {
+        const above = index - canvas.width * 4;
+        const aboveValue = (
+          pixels[above] * 0.299 +
+          pixels[above + 1] * 0.587 +
+          pixels[above + 2] * 0.114
+        );
+        edges += Math.abs(value - aboveValue);
+        comparisons++;
+      }
+    }
+  }
+  return {
+    sharpness: Math.min(1, edges / Math.max(1, comparisons) / 28),
+    glare: glare / (canvas.width * canvas.height),
+  };
+}
+
+function scannerCanvasFile(canvas, name) {
+  return new Promise((resolve, reject) =>
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Could not prepare binder crop"));
+        return;
+      }
+      resolve(new File([blob], name, { type: "image/jpeg" }));
+    }, "image/jpeg", 0.92)
+  );
+}
+
+async function scanBinderSlot(Tesseract, worker, crop, position) {
+  const quality = scannerBinderQuality(crop);
+  const file = await scannerCanvasFile(crop, `binder-slot-${position}.jpg`);
+  const image = await prepareScannerImage(file);
+  const recognized = await recognizeScannerImage(Tesseract, image, worker);
+  const rawText = [
+    recognized.topText,
+    recognized.captionText,
+    recognized.attackText,
+    recognized.bottomText,
+    recognized.fullText,
+  ].join("\n");
+  let pokemon = findScannedPokedexPokemon(rawText) ||
+    findScannedPokemon(recognized.topText, 0.36) ||
+    findScannedPokemon(recognized.fullText || "", 0) ||
+    findScannedPokemon(recognized.bottomText);
+  let attackCards = [];
+  if (!pokemon) {
+    const recovered = await findCardsByScannedAttack(
+      `${recognized.captionText}\n${recognized.attackText}`,
+    );
+    pokemon = recovered.pokemon;
+    attackCards = recovered.cards;
+  }
+  if (!pokemon && !attackCards.length) {
+    return {
+      position,
+      quality,
+      crop: crop.toDataURL("image/jpeg", 0.78),
+      candidates: [],
+      selectedId: null,
+      include: false,
+      confidence: 0,
+      evidence: { name: null, collectorNumbers: [], hp: null },
+    };
+  }
+
+  let candidates = attackCards.filter((card) =>
+    card.image || cardImageOverrides[card.id]
+  );
+  if (pokemon) {
+    const printedName = tcgNameOverrides[pokemon.slug] ||
+      titleCase(pokemon.slug);
+    const cards = await getJson(
+      `${TCG_API}/cards?name=${encodeURIComponent(printedName)}`,
+    );
+    const exactName = new RegExp(
+      `(^|[^a-z0-9])${printedName.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`,
+      "i",
+    );
+    candidates = cards.filter((card) =>
+      (card.image || cardImageOverrides[card.id]) && exactName.test(card.name)
+    );
+  }
+  const collectorNumbers = findCollectorNumbers(rawText, true);
+  const scanDetails = {
+    hp: findScannedHp(recognized.topText),
+    topText: recognized.topText,
+    attackText: recognized.attackText,
+    bottomText: recognized.bottomText,
+  };
+  let matches = rankScannedCards(
+    candidates,
+    rawText,
+    collectorNumbers,
+    scanDetails,
+  );
+  if (matches.length > 1) {
+    matches = await refineScannedMatches(
+      matches,
+      rawText,
+      collectorNumbers,
+      image,
+      scanDetails,
+    );
+  }
+  matches = matches.slice(0, 5);
+  let confidence = collectorNumbers.length
+    ? 0.96
+    : pokemon && scanDetails.hp
+    ? 0.84
+    : pokemon
+    ? 0.7
+    : matches.length
+    ? 0.55
+    : 0;
+  confidence *= Math.max(0.58, 1 - quality.glare * 2.5);
+  confidence *= Math.max(0.7, 0.65 + quality.sharpness * 0.5);
+  confidence = Math.max(0, Math.min(0.99, confidence));
+  return {
+    position,
+    quality,
+    crop: crop.toDataURL("image/jpeg", 0.78),
+    candidates: matches,
+    selectedId: matches[0]?.id || null,
+    include: Boolean(matches.length && confidence >= 0.68),
+    confidence,
+    evidence: {
+      name: pokemon?.slug || null,
+      collectorNumbers,
+      hp: scanDetails.hp,
+    },
+  };
+}
+
+function scannerBinderJson(session) {
+  return {
+    schema: "cardedex-binder-scan/v1",
+    source: "on-device",
+    layout: session.layout.id,
+    columns: session.layout.columns,
+    rows: session.layout.rows,
+    slots: session.slots.map((slot) => ({
+      position: slot.position,
+      confidence: Number(slot.confidence.toFixed(3)),
+      quality: {
+        sharpness: Number(slot.quality.sharpness.toFixed(3)),
+        glare: Number(slot.quality.glare.toFixed(3)),
+      },
+      evidence: slot.evidence,
+      include: slot.include,
+      selectedId: slot.selectedId,
+      candidates: slot.candidates.map((card) => ({
+        id: card.id,
+        name: card.name,
+        localId: card.localId,
+        set: card.set?.name || card.setCode || null,
+      })),
+    })),
+  };
+}
+
+function renderBinderReview() {
+  if (!scannerBinderSession) return;
+  const found = scannerBinderSession.slots.filter((slot) =>
+    slot.candidates.length
+  ).length;
+  scannerProgress.textContent = t("binderFound", {
+    found,
+    total: scannerBinderSession.slots.length,
+  });
+  scannerResults.innerHTML = `<div class="binder-review-header"><h3>${
+    t("binderReview")
+  }</h3><span>${escapeHtml(scannerBinderSession.layout.id)}</span></div>
+    <div class="binder-review-grid">${scannerBinderSession.slots.map((slot) => {
+      const confidence = Math.round(slot.confidence * 100);
+      if (!slot.candidates.length) {
+        return `<article class="binder-slot low" data-binder-position="${slot.position}">
+          <div class="binder-slot-image"><img src="${slot.crop}" alt=""><span>#${slot.position}</span></div>
+          <div class="binder-slot-empty">${escapeHtml(t("binderNoMatch"))}</div>
+        </article>`;
+      }
+      return `<article class="binder-slot ${slot.confidence < 0.68 ? "low" : ""}" data-binder-position="${slot.position}">
+        <div class="binder-slot-image"><img src="${slot.crop}" alt=""><span>#${slot.position}</span></div>
+        <div class="binder-slot-copy">
+          <select data-binder-choice="${slot.position}" aria-label="Card match">${slot.candidates.map((card) =>
+            `<option value="${escapeHtml(card.id)}" ${card.id === slot.selectedId ? "selected" : ""}>${escapeHtml(card.name)} · ${escapeHtml(card.set?.name || card.setCode)} #${escapeHtml(card.localId)}</option>`
+          ).join("")}</select>
+          <div class="binder-slot-meta"><span>${confidence}%</span><label><input type="checkbox" data-binder-include="${slot.position}" ${slot.include ? "checked" : ""}> ${escapeHtml(t("binderInclude"))}</label></div>
+        </div>
+      </article>`;
+    }).join("")}</div>
+    <div class="binder-add"><button type="button" id="scannerBinderAdd" ${
+      scannerBinderSession.slots.some((slot) => slot.include && slot.selectedId)
+        ? ""
+        : "disabled"
+    }>${escapeHtml(t("binderAddSelected"))}</button></div>`;
+  scannerBinderSession.json = scannerBinderJson(scannerBinderSession);
+}
+
+async function scanBinderPage(file) {
+  if (!file?.type.startsWith("image/")) return;
+  scannerDialog.setAttribute("aria-busy", "true");
+  scannerDialog.querySelectorAll(".scanner-actions button").forEach(
+    (button) => {
+      button.disabled = true;
+    },
+  );
+  scannerMatches = [];
+  scannerBinderSession = null;
+  scannerResults.innerHTML = "";
+  scannerWorkspace.hidden = false;
+  scannerProgress.innerHTML = `<span class="scanner-spinner"></span>${
+    t("binderPreparing")
+  }`;
+  try {
+    const [Tesseract, bitmap] = await Promise.all([
+      loadScannerLibrary(),
+      createImageBitmap(file),
+    ]);
+    const page = scannerBinderPageCanvas(bitmap);
+    bitmap.close();
+    const layout = scannerBinderLayoutFor(page, scannerBinderLayout.value);
+    scannerPreview.src = page.toDataURL("image/jpeg", 0.8);
+    scannerPreview.parentElement.style.aspectRatio =
+      `${page.width}/${page.height}`;
+    const crops = [];
+    for (let row = 0; row < layout.rows; row++) {
+      for (let column = 0; column < layout.columns; column++) {
+        crops.push(scannerBinderCrop(page, layout, row, column));
+      }
+    }
+    const worker = await Tesseract.createWorker("eng", 1);
+    const slots = [];
+    try {
+      for (let index = 0; index < crops.length; index++) {
+        scannerProgress.innerHTML = `<span class="scanner-spinner"></span>${
+          t("binderScanning", { done: index + 1, total: crops.length })
+        }`;
+        try {
+          slots.push(
+            await scanBinderSlot(Tesseract, worker, crops[index], index + 1),
+          );
+        } catch (error) {
+          console.warn("Binder slot scan failed", index + 1, error);
+          slots.push({
+            position: index + 1,
+            quality: scannerBinderQuality(crops[index]),
+            crop: crops[index].toDataURL("image/jpeg", 0.78),
+            candidates: [],
+            selectedId: null,
+            include: false,
+            confidence: 0,
+            evidence: { name: null, collectorNumbers: [], hp: null },
+          });
+        }
+      }
+    } finally {
+      await worker.terminate();
+    }
+    scannerBinderSession = {
+      layout,
+      slots,
+      createdAt: new Date().toISOString(),
+    };
+    renderBinderReview();
+  } catch (error) {
+    console.error("Binder scan failed", error);
+    scannerProgress.textContent = t("scannerUnavailable");
+  } finally {
+    scannerDialog.removeAttribute("aria-busy");
+    scannerDialog.querySelectorAll(".scanner-actions button").forEach(
+      (button) => {
+        button.disabled = false;
+      },
+    );
+  }
+}
+
+function addBinderSelection() {
+  if (!scannerBinderSession) return;
+  const quantities = new Map();
+  scannerBinderSession.slots.filter((slot) =>
+    slot.include && slot.selectedId
+  ).forEach((slot) =>
+    quantities.set(
+      slot.selectedId,
+      (quantities.get(slot.selectedId) || 0) + 1,
+    )
+  );
+  for (const [id, quantity] of quantities) {
+    const existing = state.cardStates[id] === "owned"
+      ? Math.max(1, Number(state.cardCounts[id]) || 1)
+      : 0;
+    state.cardStates[id] = "owned";
+    state.cardCounts[id] = existing + quantity;
+    hydrateOwnedCard(id);
+  }
+  saveUser();
+  renderCards();
+  scannerProgress.textContent = t("binderAdded", {
+    count: [...quantities.values()].reduce((sum, value) => sum + value, 0),
+  });
+  if (collectionDialog.open) {
+    renderCollectionSummary();
+    renderCompletionTracker();
+    populateCollectionFilters();
+    renderCollectionCards();
+  }
+}
+
 scannerOpen.addEventListener("click", openScanner);
 document.querySelector("#scannerClose").addEventListener(
   "click",
@@ -1042,10 +1642,46 @@ document.querySelector("#scannerGallery").addEventListener(
   "click",
   () => resetScannerInput(scannerGalleryInput),
 );
+document.querySelector("#scannerBinderCamera").addEventListener(
+  "click",
+  () => resetScannerInput(scannerBinderCameraInput),
+);
+document.querySelector("#scannerBinderGallery").addEventListener(
+  "click",
+  () => resetScannerInput(scannerBinderGalleryInput),
+);
 [scannerCameraInput, scannerGalleryInput].forEach((input) =>
   input.addEventListener("change", () => scanCardPicture(input.files[0]))
 );
+[scannerBinderCameraInput, scannerBinderGalleryInput].forEach((input) =>
+  input.addEventListener("change", () => scanBinderPage(input.files[0]))
+);
+scannerResults.addEventListener("change", (event) => {
+  if (!scannerBinderSession) return;
+  const choice = event.target.closest("[data-binder-choice]");
+  const include = event.target.closest("[data-binder-include]");
+  const position = Number(
+    choice?.dataset.binderChoice || include?.dataset.binderInclude,
+  );
+  const slot = scannerBinderSession.slots.find((value) =>
+    value.position === position
+  );
+  if (!slot) return;
+  if (choice) slot.selectedId = choice.value || null;
+  if (include) slot.include = include.checked;
+  scannerBinderSession.json = scannerBinderJson(scannerBinderSession);
+  const add = document.querySelector("#scannerBinderAdd");
+  if (add) {
+    add.disabled = !scannerBinderSession.slots.some((value) =>
+      value.include && value.selectedId
+    );
+  }
+});
 scannerResults.addEventListener("click", (event) => {
+  if (event.target.closest("#scannerBinderAdd")) {
+    addBinderSelection();
+    return;
+  }
   const button = event.target.closest("[data-scanner-card]");
   if (!button) return;
   const card = scannerMatches.find((value) =>

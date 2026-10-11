@@ -2,7 +2,9 @@
 
 A responsive Pokédex and Pokémon trading-card browser. It uses PokéAPI for the complete species list and Pokémon details, and TCGdex for card imagery and metadata.
 
-Features include favorites, owned/wanted card tracking, completion progress, card variant labels, set/rarity/status filters, evolution chains, stat comparisons, shiny artwork, Danish UI, dark mode, offline API caching, market links, and local collection backup/restore. Collection data stays on the device; there are no accounts.
+Features include favorites, owned/wanted card tracking, completion progress, card variant labels, set/rarity/status filters, evolution chains, stat comparisons, shiny artwork, Danish UI, dark mode, offline API caching, market links, local collection backup/restore, and a Trade Binder preview.
+
+The current development build has a backend-ready collection contract and an IndexedDB-backed local operation journal, but it is not connected to a managed account service yet. Trade Binder snapshots can be exported and imported as read-only JSON files, compared against the local collection, and turned into draft trade proposals without changing either collection.
 
 ## Run locally
 
@@ -20,7 +22,7 @@ No build step or API key is required. An internet connection is needed for Poké
 
 The hosted site is an installable Progressive Web App. On iPhone, open it in Safari and choose **Share → Add to Home Screen**. On Android, open it in Chrome and choose **Install app** from the browser menu.
 
-Each browser keeps its own collection locally. Collection information is never uploaded to GitHub and is not shared between devices.
+Until the managed backend is connected, each browser still keeps its own collection locally. The interface labels this clearly. Collection information is never uploaded automatically or shared between devices in this local preview.
 
 ## Windows app
 

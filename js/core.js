@@ -127,6 +127,12 @@ const state = {
   cardStates: saved.cardStates || {},
   cardCounts: saved.cardCounts || {},
   cardPrintVariants: saved.cardPrintVariants || {},
+  cardOwnedVariants: saved.cardOwnedVariants || {},
+  trackedSeries: new Set(saved.trackedSeries || []),
+  trackedSets: new Set(saved.trackedSets || []),
+  completionMode: saved.completionMode === "master" ? "master" : "set",
+  completionSetDetails: new Map(),
+  completionDetailsLoading: new Set(),
   settings: {
     dark: false,
     language: "en",
@@ -195,6 +201,22 @@ const words = {
     myCollection: "My collection",
     collectionPrivacy:
       "Your favorites and card checklist stay private on this device.",
+    completionKicker: "Completion goals",
+    completionTitle: "Sets & series",
+    completionScope: "Includes secret cards",
+    track: "Track",
+    untrack: "Stop tracking",
+    completionEmpty: "Choose a set or series to start tracking completion.",
+    completionLoading: "Loading set catalogue…",
+    completionOwned: "{owned} of {total} cards",
+    completionPrintings: "{owned} of {total} printings",
+    completionMode: "Completion mode",
+    completionSetMode: "Any printing",
+    completionMasterMode: "Every known printing",
+    completionMasterScope:
+      "Normal, holo, reverse holo & First Edition where catalogued",
+    primaryPrint: "Primary printing",
+    ownedPrintings: "Owned printings",
     exportBackup: "Export backup",
     importBackup: "Import backup",
     cardChecklist: "Card checklist",
@@ -301,6 +323,17 @@ const words = {
       "Fill the frame with one straight card on a plain surface. Keep its name, HP, attacks, and collector number clear.",
     takePhoto: "Take photo",
     choosePicture: "Choose picture",
+    scanBinderPhoto: "Photograph binder page",
+    chooseBinderPhoto: "Choose binder page",
+    binderLayout: "Binder layout",
+    binderPreparing: "Finding cards on the binder page…",
+    binderScanning: "Scanning binder card {done}/{total}…",
+    binderReview: "Review binder page",
+    binderFound: "{found} of {total} slots matched",
+    binderInclude: "Include",
+    binderNoMatch: "No reliable match. Retake the page or scan this card separately.",
+    binderAddSelected: "Add selected cards",
+    binderAdded: "Added {count} cards to your collection.",
     scannerPrivacy:
       "Recognition runs on this device. Your picture is not uploaded to Cardédex.",
     scannerPreparing: "Preparing the picture…",
@@ -351,6 +384,22 @@ const words = {
     myCollection: "Min samling",
     collectionPrivacy:
       "Dine favoritter og din kortoversigt forbliver private på denne enhed.",
+    completionKicker: "Samlingsmål",
+    completionTitle: "Sæt og serier",
+    completionScope: "Inkluderer hemmelige kort",
+    track: "Følg",
+    untrack: "Stop med at følge",
+    completionEmpty: "Vælg et sæt eller en serie for at følge din fremgang.",
+    completionLoading: "Indlæser sætkatalog…",
+    completionOwned: "{owned} af {total} kort",
+    completionPrintings: "{owned} af {total} tryk",
+    completionMode: "Fuldførelsestype",
+    completionSetMode: "Et hvilket som helst tryk",
+    completionMasterMode: "Alle kendte tryk",
+    completionMasterScope:
+      "Normal, holo, omvendt holo og første udgave, hvor de er katalogiseret",
+    primaryPrint: "Primært tryk",
+    ownedPrintings: "Ejede tryk",
     exportBackup: "Eksportér sikkerhedskopi",
     importBackup: "Importér sikkerhedskopi",
     cardChecklist: "Kortoversigt",
@@ -458,6 +507,17 @@ const words = {
       "Fyld billedet med ét lige kort på en ensfarvet overflade. Hold navn, HP, angreb og samlernummer tydelige.",
     takePhoto: "Tag et billede",
     choosePicture: "Vælg et billede",
+    scanBinderPhoto: "Fotografér en mappe-side",
+    chooseBinderPhoto: "Vælg en mappe-side",
+    binderLayout: "Mappelayout",
+    binderPreparing: "Finder kort på mappe-siden…",
+    binderScanning: "Scanner kort {done}/{total} fra mappen…",
+    binderReview: "Gennemgå mappe-side",
+    binderFound: "{found} af {total} pladser matchet",
+    binderInclude: "Medtag",
+    binderNoMatch: "Intet sikkert match. Tag siden igen, eller scan kortet separat.",
+    binderAddSelected: "Føj valgte kort til samlingen",
+    binderAdded: "Føjede {count} kort til din samling.",
     scannerPrivacy:
       "Genkendelsen kører på denne enhed. Dit billede uploades ikke til Cardédex.",
     scannerPreparing: "Forbereder billedet…",
@@ -510,16 +570,23 @@ function generationFor(id) {
   );
 }
 function saveUser() {
+  const snapshot = {
+    version: 6,
+    favorites: [...state.favorites],
+    cardStates: state.cardStates,
+    cardCounts: state.cardCounts,
+    cardPrintVariants: state.cardPrintVariants,
+    cardOwnedVariants: state.cardOwnedVariants,
+    trackedSeries: [...state.trackedSeries],
+    trackedSets: [...state.trackedSets],
+    completionMode: state.completionMode,
+    settings: state.settings,
+  };
   localStorage.setItem(
     "cardedex-user",
-    JSON.stringify({
-      favorites: [...state.favorites],
-      cardStates: state.cardStates,
-      cardCounts: state.cardCounts,
-      cardPrintVariants: state.cardPrintVariants,
-      settings: state.settings,
-    }),
+    JSON.stringify(snapshot),
   );
+  if (typeof queueCollectionSync === "function") queueCollectionSync(snapshot);
 }
 function escapeHtml(value = "") {
   const div = document.createElement("div");

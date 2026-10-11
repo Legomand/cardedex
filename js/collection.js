@@ -73,6 +73,171 @@ function prepareCollectionCard(card) {
     series: card.series || card.set?.serie?.name || "Other series",
   };
 }
+function completionSetTotal(set) {
+  const detail = state.completionSetDetails.get(set?.id) || set;
+  const counts = detail?.cardCount || {};
+  const unique = Math.max(0, Number(counts.total ?? counts.official) || 0);
+  if (state.completionMode !== "master") return unique;
+  const printings = ["normal", "holo", "reverse", "firstEd"].reduce(
+    (sum, key) => sum + (Number(counts[key]) || 0),
+    0,
+  );
+  return Math.max(unique, printings);
+}
+function completionOwnedBySet() {
+  const counts = new Map();
+  Object.entries(state.cardStates).forEach(([id, status]) => {
+    if (status !== "owned") return;
+    const code = setCode(id);
+    const current = counts.get(code) || { cards: 0, printings: 0 };
+    const saved = Array.isArray(state.cardOwnedVariants[id])
+      ? new Set(state.cardOwnedVariants[id].map(canonicalPrintVariant)).size
+      : 0;
+    current.cards++;
+    current.printings += Math.max(1, saved);
+    counts.set(code, current);
+  });
+  return counts;
+}
+function completionProgressItem(kind, item, ownedBySet) {
+  const sets = kind === "series"
+    ? state.cardSets.filter((set) => set.seriesId === item.id)
+    : [item];
+  const total = sets.reduce((sum, set) => sum + completionSetTotal(set), 0);
+  const owned = Math.min(
+    total,
+    sets.reduce((sum, set) => {
+      const count = ownedBySet.get(set.id);
+      return sum + (state.completionMode === "master"
+        ? count?.printings || 0
+        : count?.cards || 0);
+    }, 0),
+  );
+  const percentage = total ? Math.round(owned / total * 100) : 0;
+  const label = kind === "series" ? t("series") : t("set");
+  return `<article class="completion-item" data-completion-kind="${kind}" data-completion-id="${escapeHtml(item.id)}">
+    <div class="completion-item-copy"><span>${escapeHtml(label)}</span><strong>${escapeHtml(item.name)}</strong><div class="completion-progress" aria-label="${percentage}%"><i style="width:${percentage}%"></i></div></div>
+    <div class="completion-item-meta"><strong>${percentage}%</strong><span>${escapeHtml(t(state.completionMode === "master" ? "completionPrintings" : "completionOwned", { owned, total }))}</span><button type="button" class="completion-remove" data-remove-completion aria-label="${escapeHtml(t("untrack"))}" title="${escapeHtml(t("untrack"))}">×</button></div>
+  </article>`;
+}
+function completionTrackedSetIds() {
+  const ids = new Set(state.trackedSets);
+  state.cardSets.forEach((set) => {
+    if (state.trackedSeries.has(set.seriesId)) ids.add(set.id);
+  });
+  return [...ids];
+}
+async function loadCompletionDetails() {
+  if (state.completionMode !== "master") return;
+  const ids = completionTrackedSetIds().filter((id) =>
+    !state.completionSetDetails.has(id) &&
+    !state.completionDetailsLoading.has(id)
+  );
+  const queue = [...ids];
+  const workers = Array.from({ length: Math.min(6, queue.length) }, async () => {
+    while (queue.length) {
+      const id = queue.shift();
+      state.completionDetailsLoading.add(id);
+      try {
+        const detail = await getJson(
+          `${TCG_API}/sets/${encodeURIComponent(id)}`,
+          true,
+          true,
+        );
+        state.completionSetDetails.set(id, detail);
+      } catch {} finally {
+        state.completionDetailsLoading.delete(id);
+      }
+    }
+  });
+  await Promise.all(workers);
+  if (collectionDialog.open) renderCompletionTracker();
+}
+function updateCompletionButtons() {
+  const pairs = [
+    ["series", document.querySelector("#completionSeriesSelect")],
+    ["set", document.querySelector("#completionSetSelect")],
+  ];
+  pairs.forEach(([kind, select]) => {
+    const button = document.querySelector(`[data-track-completion="${kind}"]`);
+    const tracked = kind === "series" ? state.trackedSeries : state.trackedSets;
+    if (button) button.disabled = !select?.value || tracked.has(select.value);
+  });
+}
+function renderCompletionTracker() {
+  const seriesSelect = document.querySelector("#completionSeriesSelect");
+  const setSelect = document.querySelector("#completionSetSelect");
+  const list = document.querySelector("#completionList");
+  if (!seriesSelect || !setSelect || !list) return;
+  const mode = document.querySelector("#completionMode");
+  if (mode) mode.value = state.completionMode;
+  const scope = document.querySelector("#completionScope");
+  if (scope) {
+    scope.textContent = state.completionMode === "master"
+      ? t("completionMasterScope")
+      : t("completionScope");
+  }
+  if (!state.cardSets.length) {
+    seriesSelect.innerHTML = `<option value="">${escapeHtml(t("completionLoading"))}</option>`;
+    setSelect.innerHTML = `<option value="">${escapeHtml(t("completionLoading"))}</option>`;
+    list.innerHTML = `<div class="completion-empty">${escapeHtml(t("completionLoading"))}</div>`;
+    updateCompletionButtons();
+    return;
+  }
+  const previousSeries = seriesSelect.value;
+  const previousSet = setSelect.value;
+  const visibleSeries = state.cardSeries.filter((series) =>
+    !state.settings.hidePocket || series.id !== POCKET_SERIES_ID
+  );
+  const visibleSets = state.cardSets.filter((set) =>
+    completionSetTotal(set) &&
+    (!state.settings.hidePocket || !isPocketSet(set))
+  );
+  seriesSelect.innerHTML = `<option value="">${escapeHtml(t("series"))}…</option>` +
+    visibleSeries.map((series) =>
+      `<option value="${escapeHtml(series.id)}">${escapeHtml(series.name)}</option>`
+    ).join("");
+  setSelect.innerHTML = `<option value="">${escapeHtml(t("set"))}…</option>` +
+    visibleSeries.map((series) => {
+      const options = visibleSets.filter((set) => set.seriesId === series.id);
+      return options.length
+        ? `<optgroup label="${escapeHtml(series.name)}">${options.map((set) =>
+          `<option value="${escapeHtml(set.id)}">${escapeHtml(set.name)}</option>`
+        ).join("")}</optgroup>`
+        : "";
+    }).join("");
+  if ([...seriesSelect.options].some((option) => option.value === previousSeries)) {
+    seriesSelect.value = previousSeries;
+  }
+  if ([...setSelect.options].some((option) => option.value === previousSet)) {
+    setSelect.value = previousSet;
+  }
+  const ownedBySet = completionOwnedBySet();
+  const rows = [];
+  [...state.trackedSeries].forEach((id) => {
+    const series = state.cardSeries.find((item) => item.id === id);
+    if (series) rows.push(completionProgressItem("series", series, ownedBySet));
+  });
+  [...state.trackedSets].forEach((id) => {
+    const set = state.cardSets.find((item) => item.id === id);
+    if (set) rows.push(completionProgressItem("set", set, ownedBySet));
+  });
+  list.innerHTML = rows.join("") ||
+    `<div class="completion-empty">${escapeHtml(t("completionEmpty"))}</div>`;
+  updateCompletionButtons();
+}
+function trackCompletion(kind, id) {
+  if (!id) return;
+  (kind === "series" ? state.trackedSeries : state.trackedSets).add(id);
+  saveUser();
+  renderCompletionTracker();
+  loadCompletionDetails();
+}
+function untrackCompletion(kind, id) {
+  (kind === "series" ? state.trackedSeries : state.trackedSets).delete(id);
+  saveUser();
+  renderCompletionTracker();
+}
 function cardPokedexNumber(card) {
   if (Number.isFinite(card.pokedexNumber)) return card.pokedexNumber;
   const haystack = ` ${normalizeCardName(card.name)} `;
@@ -281,11 +446,16 @@ function renderCollectionCards() {
       status === "wanted" ? "active" : ""
     }">♥ ${t("wanted")}</button></span>${
       cardPrintVariantControl(card, status)
-    }${cardQuantity(card.id, status)}</article>`;
+    }${cardOwnedVariantsControl(card, status)}${
+      cardQuantity(card.id, status)
+    }</article>`;
   }).join("");
 }
 async function showCollection() {
   renderCollectionSummary();
+  renderCompletionTracker();
+  if (typeof renderTradeBinder === "function") renderTradeBinder();
+  loadCompletionDetails();
   if (!collectionDialog.open) collectionDialog.showModal();
   collectionSearch.value = state.collectionFilters.query;
   const request = ++state.collectionRequest;
@@ -333,16 +503,24 @@ async function showCollection() {
   renderCollectionSummary();
   populateCollectionFilters();
   renderCollectionCards();
+  if (typeof renderTradeBinder === "function") renderTradeBinder();
 }
 function exportCollection() {
   const blob = new Blob([JSON.stringify(
     {
-      version: 3,
+      version: 6,
       exportedAt: new Date().toISOString(),
+      profile: typeof syncProfile === "object"
+        ? { displayName: syncProfile.displayName, revision: syncProfile.revision }
+        : undefined,
       favorites: [...state.favorites],
       cardStates: state.cardStates,
       cardCounts: state.cardCounts,
       cardPrintVariants: state.cardPrintVariants,
+      cardOwnedVariants: state.cardOwnedVariants,
+      trackedSeries: [...state.trackedSeries],
+      trackedSets: [...state.trackedSets],
+      completionMode: state.completionMode,
       settings: state.settings,
     },
     null,
@@ -361,6 +539,10 @@ async function importCollection(file) {
     state.cardStates = data.cardStates || {};
     state.cardCounts = data.cardCounts || {};
     state.cardPrintVariants = data.cardPrintVariants || {};
+    state.cardOwnedVariants = data.cardOwnedVariants || {};
+    state.trackedSeries = new Set(data.trackedSeries || []);
+    state.trackedSets = new Set(data.trackedSets || []);
+    state.completionMode = data.completionMode === "master" ? "master" : "set";
     state.settings = { ...state.settings, ...data.settings };
     saveUser();
     applySettings();

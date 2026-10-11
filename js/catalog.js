@@ -242,6 +242,7 @@ async function loadMainCardFilters() {
     mainSetFilter.disabled = false;
     renderMainSeriesOptions();
     renderMainSetOptions();
+    if (collectionDialog.open) renderCompletionTracker();
     if (state.current) {
       renderCardFilters();
       renderCards();

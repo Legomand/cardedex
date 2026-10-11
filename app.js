@@ -57,6 +57,21 @@ function applySettings() {
   setText(".collection-content>.section-kicker", "savedDevice");
   setText(".collection-content>h2", "myCollection");
   setText(".collection-intro", "collectionPrivacy");
+  setText("#completionKicker", "completionKicker");
+  setText("#completionTitle", "completionTitle");
+  setText("#completionScope", "completionScope");
+  setText("#completionSeriesLabel", "series");
+  setText("#completionSetLabel", "set");
+  const completionMode = document.querySelector("#completionMode");
+  completionMode.setAttribute("aria-label", t("completionMode"));
+  completionMode.querySelector('[value="set"]').textContent =
+    t("completionSetMode");
+  completionMode.querySelector('[value="master"]').textContent =
+    t("completionMasterMode");
+  completionMode.value = state.completionMode;
+  document.querySelectorAll("[data-track-completion]").forEach((button) =>
+    button.textContent = t("track")
+  );
   setText("#exportCollection", "exportBackup");
   setText("#importCollection", "importBackup");
   setText(".collection-browser-heading .section-kicker", "cardChecklist");
@@ -79,6 +94,8 @@ function applySettings() {
   setLabel("#lightboxClose", "closePreview");
   setLabel("#collectionClose", "closeCollection");
   if (typeof applyScannerLanguage === "function") applyScannerLanguage();
+  if (typeof applySyncLanguage === "function") applySyncLanguage();
+  if (typeof applyTradeLanguage === "function") applyTradeLanguage();
   const pokedexOption = mainOrderFilter.querySelector('[value="pokedex"]');
   if (pokedexOption) pokedexOption.textContent = t("pokedexNumber");
   if (mainSeriesFilter.options[0]) {
@@ -305,10 +322,18 @@ drawerContent.addEventListener("click", (e) => {
   }
 });
 drawerContent.addEventListener("change", (event) => {
+  const cardId = event.target.closest(".tcg-card")?.dataset.cardId;
   if (event.target.matches("[data-print-variant]")) {
     setPrintVariant(
-      event.target.closest(".tcg-card").dataset.cardId,
+      cardId,
       event.target.value,
+    );
+  }
+  if (event.target.matches("[data-owned-variant]")) {
+    toggleOwnedPrintVariant(
+      cardId,
+      event.target.dataset.ownedVariant,
+      event.target.checked,
     );
   }
 });
@@ -344,12 +369,19 @@ cardDialog.addEventListener("click", (e) => {
   }
 });
 cardDialog.addEventListener("change", (event) => {
-  if (!event.target.matches("[data-print-variant]")) return;
   const cardId = cardDialog.dataset.cardId;
   const card = cardDialog.cardData || state.cards.find((value) =>
     value.id === cardId
   ) || state.collectionCards.find((value) => value.id === cardId);
-  setPrintVariant(cardId, event.target.value);
+  if (event.target.matches("[data-print-variant]")) {
+    setPrintVariant(cardId, event.target.value);
+  } else if (event.target.matches("[data-owned-variant]")) {
+    toggleOwnedPrintVariant(
+      cardId,
+      event.target.dataset.ownedVariant,
+      event.target.checked,
+    );
+  } else return;
   if (card) openCard(card);
 });
 document.querySelector("#collectionOpen").addEventListener(
@@ -371,6 +403,41 @@ document.querySelector("#importCollection").addEventListener(
 document.querySelector("#importFile").addEventListener("change", (e) => {
   if (e.target.files[0]) importCollection(e.target.files[0]);
 });
+document.querySelector(".completion-controls").addEventListener(
+  "change",
+  updateCompletionButtons,
+);
+document.querySelector("#completionMode").addEventListener(
+  "change",
+  (event) => {
+    state.completionMode = event.target.value === "master" ? "master" : "set";
+    saveUser();
+    renderCompletionTracker();
+    loadCompletionDetails();
+  },
+);
+document.querySelector(".completion-tracker").addEventListener(
+  "click",
+  (event) => {
+    const track = event.target.closest("[data-track-completion]");
+    if (track) {
+      const kind = track.dataset.trackCompletion;
+      const select = document.querySelector(
+        kind === "series" ? "#completionSeriesSelect" : "#completionSetSelect",
+      );
+      trackCompletion(kind, select.value);
+      return;
+    }
+    const remove = event.target.closest("[data-remove-completion]");
+    if (remove) {
+      const item = remove.closest("[data-completion-kind]");
+      untrackCompletion(
+        item.dataset.completionKind,
+        item.dataset.completionId,
+      );
+    }
+  },
+);
 document.querySelector("#favoriteList").addEventListener("click", (e) => {
   const b = e.target.closest("[data-pokemon]");
   if (b) {
@@ -404,10 +471,18 @@ collectionCardGrid.addEventListener("click", (event) => {
   }
 });
 collectionCardGrid.addEventListener("change", (event) => {
+  const cardId = event.target.closest(".collection-card")?.dataset.cardId;
   if (event.target.matches("[data-print-variant]")) {
     setPrintVariant(
-      event.target.closest(".collection-card").dataset.cardId,
+      cardId,
       event.target.value,
+    );
+  }
+  if (event.target.matches("[data-owned-variant]")) {
+    toggleOwnedPrintVariant(
+      cardId,
+      event.target.dataset.ownedVariant,
+      event.target.checked,
     );
   }
 });
@@ -425,6 +500,7 @@ document.querySelector("#langToggle").addEventListener("click", () => {
   if (state.current) openPokemon(state.current.name, false);
   if (collectionDialog.open) {
     renderCollectionSummary();
+    renderCompletionTracker();
     populateCollectionFilters();
     renderCollectionCards();
   }
