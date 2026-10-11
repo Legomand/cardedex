@@ -422,4 +422,10 @@ body.drawer-open { overflow:hidden; }
   .search-shell{height:60px;padding-right:9px}.search-shell input{padding:0 9px}.scan-button{width:42px;height:42px}.scanner-content{padding:30px 20px}.scanner-content h2{font-size:30px}.scanner-actions{grid-template-columns:1fr}.scanner-layout{align-items:stretch;flex-direction:column}.scanner-layout select{width:100%}.scanner-workspace{grid-template-columns:90px 1fr}.scanner-match{grid-template-columns:52px minmax(0,1fr)}.scanner-match img{width:52px}.scanner-match>b{display:none}.binder-review-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.completion-tracker{padding:17px}.completion-heading{align-items:start;flex-direction:column;gap:5px}.completion-controls{grid-template-columns:1fr}.completion-item{grid-template-columns:1fr}.completion-item-meta{justify-content:space-between}.account-heading{align-items:stretch;flex-direction:column}.account-badge{width:max-content}.account-sign-in{grid-template-columns:1fr}.sync-panel{align-items:stretch;flex-direction:column}.sync-panel label{flex-basis:auto}.trade-binder{padding:17px}.trade-heading{align-items:start;flex-direction:column;gap:8px}.trade-share-controls{grid-template-columns:1fr}.trade-selected-cards>div{grid-template-columns:1fr}.trade-summary{grid-template-columns:repeat(2,1fr)}.trade-match-grid{grid-template-columns:1fr}.trade-inspector-toolbar{align-items:stretch;flex-direction:column}
 }
 @media (max-width:390px) { .hero h1{font-size:50px}.pokemon-card{height:250px}.image-stage{height:155px}.image-stage img{width:130px;height:130px}.facts{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:720px) {
+  .pokemon-card::before{display:none}
+  .image-stage::before{content:"";position:absolute;top:50%;left:50%;width:min(145px,100%);aspect-ratio:1;border-radius:50%;background:var(--tint,#e5ede5);opacity:.8;transform:translate(-50%,-50%)}
+  .image-stage img{position:relative;z-index:1}
+  body.dark .image-stage::before{opacity:.18}
+}
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important} }
