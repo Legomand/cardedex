@@ -219,6 +219,12 @@ function classicCollectionImageUrl(card) {
   return `https://img.illudex.com/30th-c-${encodeURIComponent(localId)}/high.webp`;
 }
 function tcgplayerCardImageUrl(card) {
+  const productIds = [
+    card.thirdParty?.tcgplayer,
+    ...(card.variants_detailed || []).map((variant) =>
+      variant.thirdParty?.tcgplayer
+    ),
+  ];
   const pricingRecords = [
     card.pricing,
     ...(card.variants_detailed || []).map((variant) => variant.pricing),
@@ -226,11 +232,15 @@ function tcgplayerCardImageUrl(card) {
   for (const pricing of pricingRecords) {
     for (const value of Object.values(pricing?.tcgplayer || {})) {
       if (value && typeof value === "object" && value.productId) {
-        return `https://product-images.tcgplayer.com/fit-in/1000x1000/${
-          encodeURIComponent(value.productId)
-        }.jpg`;
+        productIds.push(value.productId);
       }
     }
+  }
+  const productId = productIds.find(Boolean);
+  if (productId) {
+    return `https://product-images.tcgplayer.com/fit-in/1000x1000/${
+      encodeURIComponent(productId)
+    }.jpg`;
   }
   return "";
 }

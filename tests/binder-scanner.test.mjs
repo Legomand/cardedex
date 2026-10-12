@@ -245,7 +245,27 @@ test("broken card artwork can recover from detailed marketplace metadata", () =>
     }),
     "https://product-images.tcgplayer.com/fit-in/1000x1000/765432.jpg",
   );
+  assert.equal(
+    context.tcgplayerCardImageUrl({
+      variants_detailed: [{ thirdParty: { tcgplayer: 123456 } }],
+    }),
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/123456.jpg",
+  );
   assert.doesNotMatch(cardsSource, /cards\.filter\(\(c\) =>\s*\(c\.image/);
+});
+
+test("Mew cards with missing catalogue artwork use verified image fallbacks", () => {
+  for (const [id, product] of [
+    ["miscp-001", "108589"],
+    ["cel25-25", "250295"],
+    ["sm3.5-40", "146699"],
+    ["mep-105", "713288"],
+    ["cel25cc-CC013", "250330"],
+    ["swsh12.5gg-GG10", "478027"],
+    ["swsh11tg-TG30", "284303"],
+  ]) {
+    assert.match(coreSource, new RegExp(`"${id.replace(".", "\\.")}"[\\s\\S]{0,100}${product}`));
+  }
 });
 
 test("missing TCG Pocket artwork falls back to the complete card image", () => {

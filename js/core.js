@@ -64,6 +64,20 @@ const tcgNameOverrides = {
   "flabebe": "Flabébé",
 };
 const cardImageOverrides = {
+  "miscp-001":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/108589.jpg",
+  "cel25-25":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/250295.jpg",
+  "sm3.5-40":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/146699.jpg",
+  "mep-105":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/713288.jpg",
+  "cel25cc-CC013":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/250330.jpg",
+  "swsh12.5gg-GG10":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/478027.jpg",
+  "swsh11tg-TG30":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/284303.jpg",
   "smp-SM228":
     "https://assets.pokemon.com/assets/cms2/img/cards/web/SMP/SMP_EN_SM228.png",
   "30th-B":
