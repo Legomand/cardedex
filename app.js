@@ -108,6 +108,7 @@ function applySettings() {
     mainRarityFilter.options[0].textContent = t("allRarities");
   }
   updateMainOrderControl();
+  renderCatalogView();
 }
 function closeDrawer(updateHistory = true) {
   drawer.classList.remove("open");
@@ -134,8 +135,13 @@ grid.addEventListener("click", (e) => {
   if (card) openPokemon(card.dataset.name);
 });
 loadMore.addEventListener("click", () => {
-  state.visible += PAGE_SIZE;
-  renderPokemon();
+  if (catalogCardFilterActive() && state.catalogView === "cards") {
+    state.catalogVisible += PAGE_SIZE;
+    renderCatalogView();
+  } else {
+    state.visible += PAGE_SIZE;
+    renderPokemon();
+  }
 });
 document.querySelector("#generationFilters").addEventListener("click", (e) => {
   const b = e.target.closest("button");
@@ -148,13 +154,24 @@ document.querySelector("#generationFilters").addEventListener("click", (e) => {
   applyFilters();
 });
 mainSeriesFilter.addEventListener("change", (event) => {
+  state.catalogVisible = PAGE_SIZE;
   state.catalogSeries = event.target.value;
   state.catalogSet = "all";
+  state.catalogView = state.catalogSeries === "all" &&
+      state.catalogRarity === "all" && !state.artist
+    ? "pokemon"
+    : "cards";
   renderMainSetOptions();
   applyMainCardFilter();
 });
 mainSetFilter.addEventListener("change", (event) => {
+  state.catalogVisible = PAGE_SIZE;
   state.catalogSet = event.target.value;
+  state.catalogView = state.catalogSet === "all" &&
+      state.catalogSeries === "all" && state.catalogRarity === "all" &&
+      !state.artist
+    ? "pokemon"
+    : "cards";
   const set = state.cardSets.find((item) => item.id === state.catalogSet);
   if (set && state.catalogSeries !== set.seriesId) {
     state.catalogSeries = set.seriesId;
@@ -164,8 +181,43 @@ mainSetFilter.addEventListener("change", (event) => {
   }
   applyMainCardFilter();
 });
+catalogViewToggle.addEventListener("click", () => {
+  renderCatalogView();
+});
+catalogCardGrid.addEventListener("click", (event) => {
+  const item = event.target.closest("[data-card-id]");
+  if (!item) return;
+  const card = catalogCardsForDisplay().find((value) =>
+    value.id === item.dataset.cardId
+  );
+  if (card) openCard(card);
+});
+document.addEventListener("error", (event) => {
+  const image = event.target.closest?.("img");
+  const item = image?.closest("[data-card-id]");
+  const cardId = item?.dataset.cardId ||
+    (image?.closest("#cardDetailContent") ? cardDialog.dataset.cardId : "");
+  if (!image || !cardId) return;
+  const groups = [
+    state.catalogCards,
+    state.rarityCards,
+    state.artistCards,
+    state.cards,
+    state.collectionCards,
+  ];
+  const card = cardDialog.cardData?.id === cardId
+    ? cardDialog.cardData
+    : groups.flat().find((value) => value.id === cardId);
+  if (card) recoverCardImage(image, card, "high");
+}, true);
 mainRarityFilter.addEventListener("change", (event) => {
+  state.catalogVisible = PAGE_SIZE;
   state.catalogRarity = event.target.value;
+  state.catalogView = state.catalogRarity === "all" &&
+      state.catalogSeries === "all" && state.catalogSet === "all" &&
+      !state.artist
+    ? "pokemon"
+    : "cards";
   applyMainRarityFilter();
 });
 mainOrderFilter.addEventListener("change", (event) => {
@@ -199,6 +251,7 @@ hidePocketToggle.addEventListener("click", () => {
   if (state.catalogRarity !== "all") applyMainRarityFilter();
   renderCardFilters();
   renderCards();
+  renderCatalogView();
 });
 searchInput.addEventListener("input", (e) => {
   state.query = e.target.value;

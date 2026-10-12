@@ -66,6 +66,16 @@ const tcgNameOverrides = {
 const cardImageOverrides = {
   "smp-SM228":
     "https://assets.pokemon.com/assets/cms2/img/cards/web/SMP/SMP_EN_SM228.png",
+  "30th-B":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/717609.jpg",
+  "30th-G":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/717608.jpg",
+  "30th-R":
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/717607.jpg",
+  "B2a-130":
+    "https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/pocket/B2a/B2a_130_EN.png",
+  "B2a-131":
+    "https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/pocket/B2a/B2a_131_EN.png",
 };
 
 const saved = JSON.parse(localStorage.getItem("cardedex-user") || "{}");
@@ -82,12 +92,17 @@ const state = {
   artistPokemonIds: null,
   artistCardIds: null,
   artistCardCounts: new Map(),
+  artistCards: [],
   artistRequest: 0,
   artistLoading: false,
   cardSeries: [],
   cardSets: [],
   catalogSeries: "all",
   catalogSet: "all",
+  catalogView: "pokemon",
+  catalogCards: [],
+  catalogVisible: PAGE_SIZE,
+  catalogLoading: false,
   mainOrder: "pokedex",
   catalogPokemonIds: null,
   catalogCardIds: null,
@@ -99,6 +114,8 @@ const state = {
   rarityPokemonIds: null,
   rarityCardIds: null,
   rarityCardCounts: new Map(),
+  rarityCards: [],
+  rarityLoading: false,
   rarityRequest: 0,
   cards: [],
   sort: "archive",
@@ -162,6 +179,8 @@ const mainOrderFilter = document.querySelector("#mainOrderFilter");
 const hidePocketToggle = document.querySelector("#hidePocketToggle");
 const catalogFilterStatus = document.querySelector("#catalogFilterStatus");
 const rarityFilterStatus = document.querySelector("#rarityFilterStatus");
+const catalogViewToggle = document.querySelector("#catalogViewToggle");
+const catalogCardGrid = document.querySelector("#catalogCardGrid");
 const cardDialog = document.querySelector("#cardLightbox");
 const collectionDialog = document.querySelector("#collectionDialog");
 const collectionSearch = document.querySelector("#collectionSearch");
@@ -177,8 +196,15 @@ const words = {
       "Explore the full Pokédex, then open any Pokémon to discover its trading cards across every era.",
     popular: "Popular",
     nationalPokedex: "National Pokédex",
+    cardCatalog: "Card catalogue",
     choosePokemon: "Choose your Pokémon",
     pokemonFound: "Pokémon found",
+    cardsFound: "Cards found",
+    filteredCards: "Filtered cards",
+    cardsInSet: "Cards in {name}",
+    showSetCards: "Show cards",
+    showSetPokemon: "Show Pokémon",
+    loadingSetCards: "Loading cards from this set…",
     allGenerations: "All generations",
     series: "Series",
     set: "Set",
@@ -360,8 +386,15 @@ const words = {
       "Udforsk hele Pokédexet, og åbn derefter en Pokémon for at se dens samlekort fra alle tidsperioder.",
     popular: "Populære",
     nationalPokedex: "Nationalt Pokédex",
+    cardCatalog: "Kortkatalog",
     choosePokemon: "Vælg din Pokémon",
     pokemonFound: "Pokémon fundet",
+    cardsFound: "Kort fundet",
+    filteredCards: "Filtrerede kort",
+    cardsInSet: "Kort i {name}",
+    showSetCards: "Vis kort",
+    showSetPokemon: "Vis Pokémon",
+    loadingSetCards: "Indlæser kort fra dette sæt…",
     allGenerations: "Alle generationer",
     series: "Serie",
     set: "Sæt",

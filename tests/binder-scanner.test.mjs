@@ -14,6 +14,7 @@ const collectionSource = fs.readFileSync(
 );
 const coreSource = fs.readFileSync(path.join(root, "js/core.js"), "utf8");
 const cardsSource = fs.readFileSync(path.join(root, "js/cards.js"), "utf8");
+const catalogSource = fs.readFileSync(path.join(root, "js/catalog.js"), "utf8");
 const authSource = fs.readFileSync(path.join(root, "js/auth.js"), "utf8");
 const syncSource = fs.readFileSync(path.join(root, "js/sync.js"), "utf8");
 const tradeSource = fs.readFileSync(path.join(root, "js/trade.js"), "utf8");
@@ -142,6 +143,128 @@ test("runtime contains no Codex or AI Army dependency", () => {
     "js/scanner.js",
   ].map((name) => fs.readFileSync(path.join(root, name), "utf8")).join("\n");
   assert.doesNotMatch(runtime, /codex|ai[ -]?army|tailscale/i);
+});
+
+test("card filters default to the complete matching card catalogue", () => {
+  for (const id of ["catalogViewToggle", "catalogCardGrid"]) {
+    assert.equal((html.match(new RegExp(`id=["']${id}["']`, "g")) || []).length, 1);
+  }
+  assert.match(catalogSource, /state\.catalogCards = cards/);
+  assert.match(catalogSource, /card\.set \|\| set/);
+  assert.match(catalogSource, /function renderCatalogCards\(\)/);
+  assert.match(catalogSource, /function catalogCardFilterActive\(\)/);
+  assert.match(catalogSource, /const showCards = filterActive;/);
+  assert.match(catalogSource, /state\.catalogView = showCards \? "cards" : "pokemon"/);
+  assert.match(catalogSource, /classList\.toggle\("cards-view", showCards\)/);
+  const context = vm.createContext({
+    setCode(id) { return id.slice(0, id.lastIndexOf("-")); },
+    deriveVariant() { return "Standard"; },
+    state: {
+      catalogCards: [
+        { id: "base1-4", localId: "4", name: "Charizard" },
+        { id: "base1-88", localId: "88", name: "Professor Oak" },
+        { id: "base1-102", localId: "102", name: "Water Energy" },
+      ],
+      settings: { hidePocket: false },
+      catalogSeries: "base",
+      catalogSet: "base1",
+      catalogRarity: "all",
+      rarityCards: [],
+      rarityLoading: false,
+      artist: null,
+      artistCards: [],
+      artistLoading: false,
+      artistCardIds: null,
+      rarityCardIds: null,
+      cardSets: [],
+      generation: "all",
+    },
+  });
+  vm.runInContext(catalogSource, context, { filename: "js/catalog.js" });
+  assert.deepEqual(
+    [...context.catalogCardsForDisplay()].map((card) => card.name),
+    ["Charizard", "Professor Oak", "Water Energy"],
+  );
+  assert.equal(context.catalogCardFilterActive(), true);
+  context.state.catalogRarity = "Rare";
+  context.state.rarityCards = [
+    { id: "base1-4", localId: "4", name: "Charizard" },
+    { id: "base1-88", localId: "88", name: "Professor Oak" },
+  ];
+  assert.deepEqual(
+    [...context.catalogCardsForDisplay()].map((card) => card.name),
+    ["Charizard", "Professor Oak"],
+  );
+});
+
+test("30th Celebration RGB Rare cards use available image fallbacks", () => {
+  for (const [id, product] of [
+    ["30th-B", "717609"],
+    ["30th-G", "717608"],
+    ["30th-R", "717607"],
+  ]) {
+    assert.match(coreSource, new RegExp(`"${id}"[\\s\\S]{0,100}${product}`));
+  }
+});
+
+test("all 30th Classic Collection cards use the complete artwork source", () => {
+  const context = vm.createContext({
+    cardImageOverrides: {},
+    isPocketCard() { return false; },
+    encodeURIComponent,
+  });
+  vm.runInContext(cardsSource, context, { filename: "js/cards.js" });
+  for (let number = 1; number <= 30; number++) {
+    const localId = String(number).padStart(3, "0");
+    assert.equal(
+      context.cardImageUrl({
+        id: `30th-c-${localId}`,
+        localId,
+        image: `https://assets.tcgdex.net/en/me/30th-c/${number}`,
+        set: { id: "30th-c" },
+      }),
+      `https://img.illudex.com/30th-c-${localId}/high.webp`,
+    );
+  }
+});
+
+test("broken card artwork can recover from detailed marketplace metadata", () => {
+  const context = vm.createContext({
+    cardImageOverrides: {},
+    isPocketCard() { return false; },
+    encodeURIComponent,
+  });
+  vm.runInContext(cardsSource, context, { filename: "js/cards.js" });
+  assert.equal(
+    context.tcgplayerCardImageUrl({
+      variants_detailed: [{
+        pricing: {
+          tcgplayer: { holofoil: { productId: 765432 } },
+        },
+      }],
+    }),
+    "https://product-images.tcgplayer.com/fit-in/1000x1000/765432.jpg",
+  );
+  assert.doesNotMatch(cardsSource, /cards\.filter\(\(c\) =>\s*\(c\.image/);
+});
+
+test("missing TCG Pocket artwork falls back to the complete card image", () => {
+  const context = vm.createContext({
+    cardImageOverrides: {},
+    isPocketCard() { return true; },
+    encodeURIComponent,
+  });
+  vm.runInContext(cardsSource, context, { filename: "js/cards.js" });
+  assert.equal(
+    context.cardImageUrl({
+      id: "B2a-130",
+      localId: "130",
+      set: { id: "B2a" },
+    }),
+    "https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/pocket/B2a/B2a_130_EN.png",
+  );
+  assert.match(coreSource, /"B2a-130"[\s\S]{0,150}B2a_130_EN\.png/);
+  assert.match(coreSource, /"B2a-131"[\s\S]{0,150}B2a_131_EN\.png/);
 });
 
 test("set and series completion goals are persisted and included in backups", () => {

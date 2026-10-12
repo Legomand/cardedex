@@ -211,9 +211,100 @@ function deriveVariant(name) {
 function setCode(id) {
   return id.slice(0, id.lastIndexOf("-"));
 }
+function classicCollectionImageUrl(card) {
+  const code = String(card.setCode || card.set?.id || setCode(card.id))
+    .toLowerCase();
+  if (code !== "30th-c" || !card.localId) return "";
+  const localId = String(card.localId).padStart(3, "0");
+  return `https://img.illudex.com/30th-c-${encodeURIComponent(localId)}/high.webp`;
+}
+function tcgplayerCardImageUrl(card) {
+  const pricingRecords = [
+    card.pricing,
+    ...(card.variants_detailed || []).map((variant) => variant.pricing),
+  ];
+  for (const pricing of pricingRecords) {
+    for (const value of Object.values(pricing?.tcgplayer || {})) {
+      if (value && typeof value === "object" && value.productId) {
+        return `https://product-images.tcgplayer.com/fit-in/1000x1000/${
+          encodeURIComponent(value.productId)
+        }.jpg`;
+      }
+    }
+  }
+  return "";
+}
+function archiveCardImageUrl(card) {
+  return card.id
+    ? `https://img.illudex.com/${encodeURIComponent(card.id)}/high.webp`
+    : "";
+}
+function cardFallbackImageUrl(card) {
+  const classicCollection = classicCollectionImageUrl(card);
+  if (classicCollection) return classicCollection;
+  const marketplace = tcgplayerCardImageUrl(card);
+  if (marketplace) return marketplace;
+  if (isPocketCard(card)) {
+    const code = card.setCode || card.set?.id || setCode(card.id);
+    if (code && card.localId) {
+      return `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/pocket/${
+        encodeURIComponent(code)
+      }/${encodeURIComponent(code)}_${
+        encodeURIComponent(card.localId)
+      }_EN.png`;
+    }
+  }
+  return archiveCardImageUrl(card);
+}
+function cardImageCandidates(card, size = "low") {
+  const candidates = [];
+  const add = (url) => {
+    if (url && !candidates.includes(url)) candidates.push(url);
+  };
+  add(cardImageOverrides[card.id]);
+  if (String(card.setCode || card.set?.id || setCode(card.id)).toLowerCase() ===
+      "30th-c") {
+    add(classicCollectionImageUrl(card));
+  }
+  if (card.image) add(`${card.image}/${size}.webp`);
+  add(tcgplayerCardImageUrl(card));
+  if (isPocketCard(card)) {
+    const code = card.setCode || card.set?.id || setCode(card.id);
+    if (code && card.localId) {
+      add(`https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/pocket/${
+        encodeURIComponent(code)
+      }/${encodeURIComponent(code)}_${
+        encodeURIComponent(card.localId)
+      }_EN.png`);
+    }
+  }
+  add(archiveCardImageUrl(card));
+  return candidates;
+}
 function cardImageUrl(card, size = "low") {
-  return cardImageOverrides[card.id] ||
-    (card.image ? `${card.image}/${size}.webp` : "");
+  return cardImageCandidates(card, size)[0] || "";
+}
+async function recoverCardImage(image, card, size = "low") {
+  const tried = new Set((image.dataset.imageTried || "").split("\n").filter(Boolean));
+  tried.add(image.src);
+  const useNext = () => {
+    const next = cardImageCandidates(card, size).find((url) => !tried.has(url));
+    if (!next) return false;
+    tried.add(next);
+    image.dataset.imageTried = [...tried].join("\n");
+    image.src = next;
+    return true;
+  };
+  if (useNext()) return;
+  if (image.dataset.cardDetailsTried) return;
+  image.dataset.cardDetailsTried = "true";
+  try {
+    const full = await getJson(
+      `${TCG_API}/cards/${encodeURIComponent(card.id)}`,
+    );
+    Object.assign(card, full);
+    useNext();
+  } catch {}
 }
 async function loadCards(name) {
   try {
@@ -224,9 +315,7 @@ async function loadCards(name) {
     if (state.current?.name !== name) return;
     const escaped = printedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const exact = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
-    state.cards = cards.filter((c) =>
-      (c.image || cardImageOverrides[c.id]) && exact.test(c.name)
-    ).map((c) => ({
+    state.cards = cards.filter((c) => exact.test(c.name)).map((c) => ({
       ...c,
       variant: deriveVariant(c.name),
       setCode: setCode(c.id),

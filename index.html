@@ -83,11 +83,12 @@
             <label class="catalog-select"><span>Series</span><select id="mainSeriesFilter"><option value="all">All series</option></select></label>
             <label class="catalog-select"><span>Set</span><select id="mainSetFilter"><option value="all">All sets</option></select></label>
             <label class="catalog-select"><span>Rarity</span><select id="mainRarityFilter"><option value="all">All rarities</option></select></label>
-            <label class="catalog-select"><span>Order</span><select id="mainOrderFilter" class="order-filter">
+            <label class="catalog-select pokemon-order-control"><span>Order</span><select id="mainOrderFilter" class="order-filter">
               <option value="pokedex">Pokédex #</option>
               <option value="cardNumber">Card #</option>
             </select></label>
           </div>
+          <button type="button" class="catalog-view-toggle" id="catalogViewToggle" aria-pressed="false" hidden>Show cards</button>
           <div class="artist-explorer">
             <div class="artist-field">
               <span aria-hidden="true">✎</span>
@@ -103,6 +104,7 @@
         <p class="catalog-filter-status rarity-filter-status" id="rarityFilterStatus" hidden></p>
 
         <div class="pokemon-grid" id="pokemonGrid" aria-live="polite"></div>
+        <div class="catalog-card-grid tcg-grid" id="catalogCardGrid" aria-live="polite" hidden></div>
         <div class="empty-state" id="emptyState" hidden>
           <div>?</div><h3>No Pokémon found</h3><p>Try another name, number, or generation.</p>
         </div>

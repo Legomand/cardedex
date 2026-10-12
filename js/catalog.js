@@ -175,6 +175,140 @@ function renderPokemon() {
   resultCount.textContent = state.filtered.length.toLocaleString();
   emptyState.hidden = state.filtered.length !== 0;
   loadMore.hidden = state.visible >= state.filtered.length;
+  renderCatalogView();
+}
+
+function catalogCardFilterActive() {
+  return state.catalogSeries !== "all" || state.catalogSet !== "all" ||
+    state.catalogRarity !== "all" || Boolean(state.artist);
+}
+
+function catalogCardsLoading() {
+  return Boolean(
+    ((state.catalogSeries !== "all" || state.catalogSet !== "all") &&
+      state.catalogLoading) ||
+      (state.catalogRarity !== "all" && state.rarityLoading) ||
+      (state.artist && state.artistLoading),
+  );
+}
+
+function catalogCardsForDisplay() {
+  const pools = [];
+  if (state.catalogSeries !== "all" || state.catalogSet !== "all") {
+    pools.push(state.catalogCards);
+  }
+  if (state.catalogRarity !== "all") pools.push(state.rarityCards);
+  if (state.artist) pools.push(state.artistCards);
+  if (!pools.length) return [];
+  const maps = pools.map((cards) =>
+    new Map(cards.map((card) => [card.id, card]))
+  );
+  return pools[0].filter((card) =>
+    maps.every((cards) => cards.has(card.id))
+  ).map((card) => {
+    const merged = Object.assign(
+      {},
+      ...maps.map((cards) => cards.get(card.id)).filter(Boolean),
+    );
+    const set = merged.set || state.cardSets.find((item) =>
+      item.id === (merged.setCode || setCode(merged.id))
+    );
+    return {
+      ...merged,
+      set,
+      setCode: merged.setCode || set?.id || setCode(merged.id),
+      series: merged.series || set?.seriesName,
+      seriesId: merged.seriesId || set?.seriesId,
+      variant: merged.variant || deriveVariant(merged.name),
+    };
+  }).filter((card) =>
+    cardIsVisible(card) &&
+    (state.generation === "all" || pokemonIdsForCard(card).some((id) => {
+      const range = generationRanges[state.generation];
+      return range && id >= range[0] && id <= range[1];
+    }))
+  ).sort((a, b) =>
+    String(a.localId).localeCompare(String(b.localId), undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }) || a.name.localeCompare(b.name)
+  );
+}
+
+function renderCatalogCards() {
+  if (catalogCardsLoading()) {
+    catalogCardGrid.innerHTML = `<div class="cards-message"><div class="spinner"></div>${
+      t("loadingSetCards")
+    }</div>`;
+    resultCount.textContent = "—";
+    loadMore.hidden = true;
+    return;
+  }
+  const cards = catalogCardsForDisplay();
+  resultCount.textContent = cards.length.toLocaleString();
+  if (!cards.length) {
+    catalogCardGrid.innerHTML = `<div class="cards-message">${
+      t("noMatchingCards")
+    }</div>`;
+    loadMore.hidden = true;
+    return;
+  }
+  catalogCardGrid.innerHTML = cards.slice(0, state.catalogVisible).map((card) =>
+    `<article class="tcg-card catalog-tcg-card" data-card-id="${
+      escapeHtml(card.id)
+    }"><button class="tcg-open" type="button"><span class="tcg-image-wrap"><span class="variant-badge">#${
+      escapeHtml(card.localId)
+    }</span><img loading="lazy" src="${
+      cardImageUrl(card, "low")
+    }" alt="${escapeHtml(card.name)}"></span><strong>${
+      escapeHtml(card.name)
+    }</strong><span>${
+      escapeHtml(card.set?.name || t("setLoading"))
+    } · #${escapeHtml(card.localId)}</span></button></article>`
+  ).join("");
+  loadMore.hidden = state.catalogVisible >= cards.length;
+}
+
+function renderCatalogView() {
+  const selectedSet = state.cardSets.find((set) =>
+    set.id === state.catalogSet
+  );
+  const filterActive = catalogCardFilterActive();
+  const showCards = filterActive;
+  state.catalogView = showCards ? "cards" : "pokemon";
+  const catalog = document.querySelector(".catalog");
+  catalog.classList.toggle("cards-view", showCards);
+  catalog.querySelector(".section-kicker").textContent = showCards
+    ? t("cardCatalog")
+    : t("nationalPokedex");
+  catalogViewToggle.hidden = true;
+  catalogViewToggle.classList.toggle("active", showCards);
+  catalogViewToggle.setAttribute("aria-pressed", String(showCards));
+  catalogViewToggle.textContent = showCards
+    ? t("showSetPokemon")
+    : t("showSetCards");
+  grid.hidden = showCards;
+  catalogCardGrid.hidden = !showCards;
+  document.querySelector("#generationFilters").hidden = showCards;
+  document.querySelector(".pokemon-order-control").hidden = showCards;
+  artistStatus.hidden = showCards && !state.artist;
+  document.querySelector("#catalogTitle").textContent = showCards
+    ? selectedSet
+      ? t("cardsInSet", { name: selectedSet.name })
+      : t("filteredCards")
+    : t("choosePokemon");
+  document.querySelector(".result-count span").textContent = showCards
+    ? t("cardsFound")
+    : t("pokemonFound");
+  if (showCards) {
+    emptyState.hidden = true;
+    loadMore.hidden = true;
+    renderCatalogCards();
+  } else {
+    resultCount.textContent = state.filtered.length.toLocaleString();
+    emptyState.hidden = state.filtered.length !== 0;
+    loadMore.hidden = state.visible >= state.filtered.length;
+  }
 }
 
 function isPocketSet(set) {
@@ -298,6 +432,8 @@ function updateMainOrderControl() {
 async function applyMainRarityFilter() {
   const request = ++state.rarityRequest;
   if (state.catalogRarity === "all") {
+    state.rarityCards = [];
+    state.rarityLoading = false;
     state.rarityPokemonIds = null;
     state.rarityCardIds = null;
     state.rarityCardCounts = new Map();
@@ -308,6 +444,8 @@ async function applyMainRarityFilter() {
   state.rarityPokemonIds = new Set();
   state.rarityCardIds = new Set();
   state.rarityCardCounts = new Map();
+  state.rarityCards = [];
+  state.rarityLoading = true;
   rarityFilterStatus.hidden = false;
   rarityFilterStatus.textContent = state.settings.language === "da"
     ? `Indlæser kort med sjældenheden ${state.catalogRarity}…`
@@ -319,6 +457,8 @@ async function applyMainRarityFilter() {
     );
     if (request !== state.rarityRequest) return;
     const cards = (detail.cards || []).filter(cardIsVisible);
+    state.rarityCards = cards;
+    state.rarityLoading = false;
     const counts = mapArtistCards(cards);
     state.rarityCardIds = new Set(cards.map((card) => card.id));
     state.rarityCardCounts = counts;
@@ -329,9 +469,12 @@ async function applyMainRarityFilter() {
     applyFilters();
   } catch {
     if (request === state.rarityRequest) {
+      state.rarityCards = [];
+      state.rarityLoading = false;
       rarityFilterStatus.textContent = state.settings.language === "da"
         ? `Kort med sjældenheden ${state.catalogRarity} kunne ikke indlæses.`
         : `Could not load ${state.catalogRarity} cards.`;
+      renderCatalogView();
     }
   }
 }
@@ -339,6 +482,9 @@ async function applyMainCardFilter() {
   const request = ++state.catalogRequest;
   updateMainOrderControl();
   if (state.catalogSeries === "all" && state.catalogSet === "all") {
+    state.catalogView = catalogCardFilterActive() ? "cards" : "pokemon";
+    state.catalogCards = [];
+    state.catalogLoading = false;
     state.catalogPokemonIds = null;
     state.catalogCardIds = null;
     state.catalogCardCounts = new Map();
@@ -351,6 +497,9 @@ async function applyMainCardFilter() {
   state.catalogCardIds = new Set();
   state.catalogCardCounts = new Map();
   state.catalogCardOrder = new Map();
+  state.catalogCards = [];
+  state.catalogVisible = PAGE_SIZE;
+  state.catalogLoading = true;
   state.generation = "all";
   document.querySelectorAll("#generationFilters button").forEach((button) =>
     button.classList.toggle("active", button.dataset.gen === "all")
@@ -383,12 +532,21 @@ async function applyMainCardFilter() {
           const detail = await getJson(
             `${TCG_API}/sets/${encodeURIComponent(set.id)}`,
           );
-          cards.push(...(detail.cards || []));
+          cards.push(...(detail.cards || []).map((card) => ({
+            ...card,
+            set: card.set || set,
+            series: card.series || set.seriesName,
+            seriesId: card.seriesId || set.seriesId,
+            setCode: card.setCode || set.id,
+            variant: card.variant || deriveVariant(card.name),
+          })));
         } catch {}
       }
     });
     await Promise.all(workers);
     if (request !== state.catalogRequest) return;
+    state.catalogCards = cards;
+    state.catalogLoading = false;
     const counts = mapArtistCards(cards);
     const setRank = new Map(sets.map((set, index) => [set.id, index]));
     const orderedCards = [...cards].sort((a, b) =>
@@ -415,9 +573,12 @@ async function applyMainCardFilter() {
     applyFilters();
   } catch {
     if (request === state.catalogRequest) {
+      state.catalogLoading = false;
+      state.catalogCards = [];
       catalogFilterStatus.textContent = state.settings.language === "da"
         ? `Kort fra ${label} kunne ikke indlæses.`
         : `Could not load cards from ${label}.`;
+      renderCatalogView();
     }
   }
 }
@@ -488,6 +649,7 @@ async function selectMainArtist(value) {
   hideArtistSuggestions();
   mainArtistInput.value = artist;
   clearArtist.hidden = false;
+  state.catalogView = "cards";
   if (
     state.artist === artist &&
     (state.artistLoading || state.artistPokemonIds?.size)
@@ -496,6 +658,7 @@ async function selectMainArtist(value) {
     artistStatus.textContent = state.settings.language === "da"
       ? `${count} Pokémon illustreret af ${artist}`
       : `${count} Pokémon illustrated by ${artist}`;
+    renderCatalogView();
     return;
   }
   const request = ++state.artistRequest;
@@ -504,6 +667,8 @@ async function selectMainArtist(value) {
   state.artistPokemonIds = new Set();
   state.artistCardIds = new Set();
   state.artistCardCounts = new Map();
+  state.artistCards = [];
+  state.catalogVisible = PAGE_SIZE;
   artistStatus.textContent = state.settings.language === "da"
     ? `Indlæser kort illustreret af ${artist}…`
     : `Loading cards illustrated by ${artist}…`;
@@ -517,6 +682,7 @@ async function selectMainArtist(value) {
       `${TCG_API}/cards?illustrator=${encodeURIComponent(`eq:${artist}`)}`,
     )).filter(cardIsVisible);
     if (request !== state.artistRequest) return;
+    state.artistCards = cards;
     const counts = mapArtistCards(cards);
     state.artistCardIds = new Set(cards.map((card) => card.id));
     state.artistCardCounts = counts;
@@ -534,12 +700,16 @@ async function selectMainArtist(value) {
     applyFilters();
   } catch {
     if (request === state.artistRequest) {
+      state.artistCards = [];
       artistStatus.textContent = state.settings.language === "da"
         ? "Illustratorens kort kunne ikke indlæses."
         : "Could not load this illustrator’s cards.";
     }
   } finally {
-    if (request === state.artistRequest) state.artistLoading = false;
+    if (request === state.artistRequest) {
+      state.artistLoading = false;
+      renderCatalogView();
+    }
   }
 }
 function clearMainArtist() {
@@ -549,8 +719,11 @@ function clearMainArtist() {
   state.artistPokemonIds = null;
   state.artistCardIds = null;
   state.artistCardCounts = new Map();
+  state.artistCards = [];
+  state.catalogVisible = PAGE_SIZE;
   mainArtistInput.value = "";
   clearArtist.hidden = true;
   artistStatus.textContent = t("artistPrompt");
+  state.catalogView = catalogCardFilterActive() ? "cards" : "pokemon";
   applyFilters();
 }
