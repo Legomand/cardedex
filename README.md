@@ -2,7 +2,7 @@
 
 A responsive Pokédex and Pokémon trading-card browser. It uses PokéAPI for the complete species list and Pokémon details, and TCGdex for card imagery and metadata.
 
-Features include favorites, owned/wanted card tracking, completion progress, card variant labels, set/rarity/status filters, evolution chains, stat comparisons, shiny artwork, Danish UI, dark mode, offline API caching, market links, local collection backup/restore, and a Trade Binder preview.
+Features include favorites, owned/wanted card tracking, completion progress, card variant labels, set/rarity/status filters, evolution chains, stat comparisons, shiny artwork, Danish UI, dark mode, offline API caching, market links, local collection backup/restore, and a Trade Binder preview. Collection values can be shown in their original EUR/USD market currencies or converted to Danish kroner using cached ECB reference rates.
 
 Cardedex supports passwordless Supabase accounts and keeps an IndexedDB-backed
 operation journal for offline changes. Signed-in collections synchronize through

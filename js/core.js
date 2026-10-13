@@ -5,6 +5,10 @@ const ART =
 const PAGE_SIZE = 48;
 const POCKET_SERIES_ID = "tcgp";
 
+function normalizeValuationCurrency(value) {
+  return value === "dkk" ? "dkk" : "market";
+}
+
 const generationRanges = {
   1: [1, 151],
   2: [152, 251],
@@ -170,6 +174,9 @@ const state = {
     shiny: false,
     hidePocket: false,
     ...saved.settings,
+    valuationCurrency: normalizeValuationCurrency(
+      saved.settings?.valuationCurrency,
+    ),
   },
 };
 const grid = document.querySelector("#pokemonGrid");
@@ -259,6 +266,10 @@ const words = {
     ownedPrintings: "Owned printings",
     exportBackup: "Export backup",
     importBackup: "Import backup",
+    collectionCurrency: "Value currency",
+    marketCurrencies: "Market currencies (EUR/USD)",
+    danishKroner: "Danish kroner (DKK)",
+    ecbReferenceRate: "ECB reference rates · {date}",
     cardChecklist: "Card checklist",
     savedCards: "Saved cards",
     favoritePokemon: "Favorite Pokémon",
@@ -449,6 +460,10 @@ const words = {
     ownedPrintings: "Ejede tryk",
     exportBackup: "Eksportér sikkerhedskopi",
     importBackup: "Importér sikkerhedskopi",
+    collectionCurrency: "Værdier i",
+    marketCurrencies: "Markedsvalutaer (EUR/USD)",
+    danishKroner: "Danske kroner (DKK)",
+    ecbReferenceRate: "ECB-referencekurser · {date}",
     cardChecklist: "Kortoversigt",
     savedCards: "Gemte kort",
     favoritePokemon: "Favorit-Pokémon",

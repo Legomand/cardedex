@@ -183,79 +183,20 @@
     <dialog class="collection-dialog" id="collectionDialog">
       <button class="dialog-close" id="collectionClose" aria-label="Close collection">×</button>
       <div class="collection-content">
-        <span class="section-kicker" id="collectionStorageKicker">Local collection preview</span>
-        <h2>My collection</h2>
-        <p class="collection-intro">This development build keeps a durable local cache while the managed account backend is prepared.</p>
-        <section class="account-panel" aria-labelledby="accountTitle">
-          <div class="account-heading">
-            <div><strong id="accountTitle">Cardedex account</strong><small id="accountDescription">Sign in to keep your collection synchronized across devices.</small></div>
-            <span class="account-badge" id="accountBadge">Signed out</span>
+        <header class="collection-heading">
+          <div>
+            <span class="section-kicker" id="collectionStorageKicker">Local collection preview</span>
+            <h2 id="collectionTitle">My collection</h2>
+            <p class="collection-intro">This development build keeps a durable local cache while the managed account backend is prepared.</p>
           </div>
-          <form class="account-sign-in" id="accountSignInForm">
-            <label><span id="accountEmailLabel">Email address</span><input id="accountEmail" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
-            <button type="submit" id="accountSignIn">Email me a sign-in link</button>
-          </form>
-          <div class="account-signed-in" id="accountSignedIn" hidden>
-            <span id="accountIdentity"></span>
-            <button type="button" id="accountSignOut">Sign out</button>
+          <div class="collection-tools">
+            <label class="collection-currency"><span id="collectionCurrencyLabel">Values</span><select id="collectionCurrency"><option value="market">Market currencies (EUR/USD)</option><option value="dkk">Danish kroner (DKK)</option></select><small id="collectionCurrencyRate" hidden></small></label>
+            <button id="exportCollection">Export backup</button>
+            <button id="importCollection">Import backup</button>
+            <input type="file" id="importFile" accept="application/json" hidden />
           </div>
-          <p class="account-message" id="accountMessage" role="status" aria-live="polite"></p>
-        </section>
-        <section class="sync-panel" aria-labelledby="syncTitle">
-          <div class="sync-panel-copy">
-            <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
-            <div><strong id="syncTitle">Local sync preview</strong><small id="syncStatus">Saved locally · server sync is not connected</small></div>
-          </div>
-          <label><span id="collectorNameLabel">Collector name</span><input id="collectorName" maxlength="40" autocomplete="nickname" placeholder="Your display name" /></label>
-          <div class="sync-choice" id="syncChoice" hidden>
-            <strong id="syncChoiceTitle">Choose which collection to keep</strong>
-            <small id="syncChoiceDescription"></small>
-            <div><button type="button" id="syncUseDevice">Use this device</button><button type="button" id="syncUseAccount">Use account copy</button></div>
-          </div>
-        </section>
+        </header>
         <div class="collection-stats" id="collectionStats"></div>
-        <div class="collection-tools">
-          <button id="exportCollection">Export backup</button>
-          <button id="importCollection">Import backup</button>
-          <input type="file" id="importFile" accept="application/json" hidden />
-        </div>
-        <section class="completion-tracker" aria-labelledby="completionTitle">
-          <div class="completion-heading">
-            <div>
-              <span class="section-kicker" id="completionKicker">Completion goals</span>
-              <h3 id="completionTitle">Sets &amp; series</h3>
-            </div>
-            <div class="completion-mode"><small id="completionScope">Includes secret cards</small><select id="completionMode" aria-label="Completion mode"><option value="set">Any printing</option><option value="master">Every known printing</option></select></div>
-          </div>
-          <div class="completion-controls">
-            <label><span id="completionSeriesLabel">Series</span><span class="completion-control"><select id="completionSeriesSelect"></select><button type="button" data-track-completion="series">Track</button></span></label>
-            <label><span id="completionSetLabel">Set</span><span class="completion-control"><select id="completionSetSelect"></select><button type="button" data-track-completion="set">Track</button></span></label>
-          </div>
-          <div class="completion-list" id="completionList"></div>
-        </section>
-        <section class="trade-binder" aria-labelledby="tradeBinderTitle">
-          <div class="trade-heading">
-            <div>
-              <span class="section-kicker" id="tradeBinderKicker">Collection sharing</span>
-              <h3 id="tradeBinderTitle">Trade Binder</h3>
-            </div>
-            <span class="trade-readonly" id="tradeReadonlyLabel">Imported binders stay read-only</span>
-          </div>
-          <p id="tradeBinderIntro">Export a private collection snapshot, inspect someone else's binder, and find useful trades without merging either collection.</p>
-          <div class="trade-share-controls">
-            <label><span id="tradeScopeLabel">Share</span><select id="tradeShareScope"><option value="all">Owned collection</option><option value="duplicates">Duplicates only</option><option value="selected">Selected cards</option></select></label>
-            <label><span id="tradeExpiryLabel">Expires</span><select id="tradeShareExpiry"><option value="1">In 1 day</option><option value="7" selected>In 7 days</option><option value="30">In 30 days</option><option value="0">No expiry</option></select></label>
-            <label class="trade-wishlist-toggle"><input id="tradeIncludeWishlist" type="checkbox" checked /><span id="tradeWishlistLabel">Include wishlist for matching</span></label>
-          </div>
-          <div class="trade-selected-cards" id="tradeSelectedCards" hidden></div>
-          <div class="trade-actions">
-            <button type="button" id="tradeExportShare">Export my Trade Binder</button>
-            <button type="button" id="tradeImportShare">Inspect someone else's</button>
-            <input type="file" id="tradeImportFile" accept="application/json,.json" hidden />
-          </div>
-          <p class="trade-message" id="tradeMessage" role="status" aria-live="polite"></p>
-          <div class="trade-inspector" id="tradeInspector"></div>
-        </section>
         <section class="collection-browser" aria-labelledby="collectionCardsTitle">
           <div class="collection-browser-heading">
             <div>
@@ -268,8 +209,86 @@
           <div class="collection-filters" id="collectionFilters"></div>
           <div class="collection-card-grid" id="collectionCardGrid"></div>
         </section>
-        <div class="favorite-heading"><span class="section-kicker">Favorite Pokémon</span></div>
-        <div class="favorite-list" id="favoriteList"></div>
+
+        <div class="collection-secondary">
+          <details class="collection-disclosure completion-tracker">
+            <summary class="completion-heading">
+              <div>
+                <span class="section-kicker" id="completionKicker">Completion goals</span>
+                <h3 id="completionTitle">Sets &amp; series</h3>
+              </div>
+            </summary>
+            <div class="collection-disclosure-body">
+              <div class="completion-mode"><small id="completionScope">Includes secret cards</small><select id="completionMode" aria-label="Completion mode"><option value="set">Any printing</option><option value="master">Every known printing</option></select></div>
+              <div class="completion-controls">
+                <label><span id="completionSeriesLabel">Series</span><span class="completion-control"><select id="completionSeriesSelect"></select><button type="button" data-track-completion="series">Track</button></span></label>
+                <label><span id="completionSetLabel">Set</span><span class="completion-control"><select id="completionSetSelect"></select><button type="button" data-track-completion="set">Track</button></span></label>
+              </div>
+              <div class="completion-list" id="completionList"></div>
+            </div>
+          </details>
+
+          <details class="collection-disclosure trade-binder">
+            <summary class="trade-heading">
+              <div>
+                <span class="section-kicker" id="tradeBinderKicker">Collection sharing</span>
+                <h3 id="tradeBinderTitle">Trade Binder</h3>
+              </div>
+              <span class="trade-readonly" id="tradeReadonlyLabel">Imported binders stay read-only</span>
+            </summary>
+            <div class="collection-disclosure-body">
+              <p id="tradeBinderIntro">Export a private collection snapshot, inspect someone else's binder, and find useful trades without merging either collection.</p>
+              <div class="trade-share-controls">
+                <label><span id="tradeScopeLabel">Share</span><select id="tradeShareScope"><option value="all">Owned collection</option><option value="duplicates">Duplicates only</option><option value="selected">Selected cards</option></select></label>
+                <label><span id="tradeExpiryLabel">Expires</span><select id="tradeShareExpiry"><option value="1">In 1 day</option><option value="7" selected>In 7 days</option><option value="30">In 30 days</option><option value="0">No expiry</option></select></label>
+                <label class="trade-wishlist-toggle"><input id="tradeIncludeWishlist" type="checkbox" checked /><span id="tradeWishlistLabel">Include wishlist for matching</span></label>
+              </div>
+              <div class="trade-selected-cards" id="tradeSelectedCards" hidden></div>
+              <div class="trade-actions">
+                <button type="button" id="tradeExportShare">Export my Trade Binder</button>
+                <button type="button" id="tradeImportShare">Inspect someone else's</button>
+                <input type="file" id="tradeImportFile" accept="application/json,.json" hidden />
+              </div>
+              <p class="trade-message" id="tradeMessage" role="status" aria-live="polite"></p>
+              <div class="trade-inspector" id="tradeInspector"></div>
+            </div>
+          </details>
+
+          <details class="collection-disclosure account-panel">
+            <summary class="account-heading">
+              <div><strong id="accountTitle">Cardedex account</strong><small id="accountDescription">Sign in to keep your collection synchronized across devices.</small></div>
+              <span class="account-badge" id="accountBadge">Signed out</span>
+            </summary>
+            <div class="collection-disclosure-body">
+              <form class="account-sign-in" id="accountSignInForm">
+                <label><span id="accountEmailLabel">Email address</span><input id="accountEmail" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+                <button type="submit" id="accountSignIn">Email me a sign-in link</button>
+              </form>
+              <div class="account-signed-in" id="accountSignedIn" hidden>
+                <span id="accountIdentity"></span>
+                <button type="button" id="accountSignOut">Sign out</button>
+              </div>
+              <p class="account-message" id="accountMessage" role="status" aria-live="polite"></p>
+              <section class="sync-panel" aria-labelledby="syncTitle">
+                <div class="sync-panel-copy">
+                  <span class="sync-dot" id="syncDot" aria-hidden="true"></span>
+                  <div><strong id="syncTitle">Local sync preview</strong><small id="syncStatus">Saved locally · server sync is not connected</small></div>
+                </div>
+                <label><span id="collectorNameLabel">Collector name</span><input id="collectorName" maxlength="40" autocomplete="nickname" placeholder="Your display name" /></label>
+                <div class="sync-choice" id="syncChoice" hidden>
+                  <strong id="syncChoiceTitle">Choose which collection to keep</strong>
+                  <small id="syncChoiceDescription"></small>
+                  <div><button type="button" id="syncUseDevice">Use this device</button><button type="button" id="syncUseAccount">Use account copy</button></div>
+                </div>
+              </section>
+            </div>
+          </details>
+
+          <details class="collection-disclosure favorite-section">
+            <summary class="favorite-heading"><span class="section-kicker">Favorite Pokémon</span></summary>
+            <div class="favorite-list" id="favoriteList"></div>
+          </details>
+        </div>
       </div>
     </dialog>
 

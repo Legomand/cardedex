@@ -33,6 +33,9 @@ local sync scaffolding, and Trade Binder previews.
 - A Supabase/PostgreSQL schema under `backend/` with row-level security,
   account bootstrap, private snapshot sync, revocable share-link records, and
   trade proposals. The browser configuration contains only a publishable key.
+- Optional DKK display for Cardmarket and TCGplayer estimates. The app refreshes
+  official ECB reference rates when online and keeps the last valid rate for
+  offline use; original EUR/USD market values remain selectable.
 
 ## Deliberately not included yet
 

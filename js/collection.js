@@ -32,12 +32,12 @@ function renderCollectionSummary() {
     ? t("loading")
     : ownedIds.length && !cardmarketPriced
     ? "—"
-    : money(cardmarketTotal, "EUR");
+    : collectionValueMoney(cardmarketTotal, "EUR");
   const tcgText = !allOwnedLoaded
     ? t("loading")
     : ownedIds.length && !tcgplayerPriced
     ? "—"
-    : money(tcgplayerTotal, "USD");
+    : collectionValueMoney(tcgplayerTotal, "USD");
   document.querySelector("#collectionStats").innerHTML =
     `<div><strong>${ownedCopies}</strong><span>${
       t("ownedCopies")
@@ -437,9 +437,9 @@ function renderCollectionCards() {
     }</small><small>${
       escapeHtml(card.variant)
     }</small><span class="collection-values"><i>CM ${
-      Number.isFinite(cm) ? money(cm, "EUR") : "—"
+      Number.isFinite(cm) ? collectionValueMoney(cm, "EUR") : "—"
     }</i><i>TCG ${
-      Number.isFinite(tcg) ? money(tcg, "USD") : "—"
+      Number.isFinite(tcg) ? collectionValueMoney(tcg, "USD") : "—"
     }</i></span></button><span class="card-status"><button data-status="owned" class="${
       status === "owned" ? "active" : ""
     }">✓ ${t("owned")}</button><button data-status="wanted" class="${
@@ -544,6 +544,9 @@ async function importCollection(file) {
     state.trackedSets = new Set(data.trackedSets || []);
     state.completionMode = data.completionMode === "master" ? "master" : "set";
     state.settings = { ...state.settings, ...data.settings };
+    state.settings.valuationCurrency = normalizeValuationCurrency(
+      state.settings.valuationCurrency,
+    );
     saveUser();
     applySettings();
     renderPokemon();

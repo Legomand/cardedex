@@ -843,13 +843,13 @@ function priceSummary(pricing) {
     if (Number.isFinite(cm.trend)) {
       out.push({
         label: "Cardmarket trend",
-        value: `${cm.unit || "EUR"} ${cm.trend.toFixed(2)}`,
+        value: collectionValueMoney(cm.trend, cm.unit || "EUR"),
       });
     }
     if (Number.isFinite(cm["trend-holo"])) {
       out.push({
         label: "Cardmarket holo",
-        value: `${cm.unit || "EUR"} ${cm["trend-holo"].toFixed(2)}`,
+        value: collectionValueMoney(cm["trend-holo"], cm.unit || "EUR"),
       });
     }
   }
@@ -862,7 +862,7 @@ function priceSummary(pricing) {
       ) {
         out.push({
           label: `TCGplayer ${variant}`,
-          value: `${tcg.unit || "USD"} ${values.marketPrice.toFixed(2)}`,
+          value: collectionValueMoney(values.marketPrice, tcg.unit || "USD"),
         });
       }
     }
@@ -967,4 +967,110 @@ function money(value, currency) {
     state.settings.language === "da" ? "da-DK" : "en-US",
     { style: "currency", currency, minimumFractionDigits: 2 },
   ).format(value);
+}
+
+const COLLECTION_FX_STORAGE_KEY = "cardedex-collection-fx";
+const COLLECTION_FX_MAX_AGE = 12 * 60 * 60 * 1000;
+const COLLECTION_FX_FALLBACK = {
+  date: "2026-10-12",
+  fetchedAt: 0,
+  eurDkk: 7.4748,
+  eurUsd: 1.1181,
+};
+let collectionFxRates = readCollectionFxRates();
+
+function validCollectionFxRates(value) {
+  return value && typeof value.date === "string" &&
+    Number.isFinite(value.fetchedAt) &&
+    Number.isFinite(value.eurDkk) && value.eurDkk > 6 && value.eurDkk < 9 &&
+    Number.isFinite(value.eurUsd) && value.eurUsd > .5 && value.eurUsd < 2;
+}
+
+function readCollectionFxRates() {
+  try {
+    if (typeof localStorage === "undefined") return { ...COLLECTION_FX_FALLBACK };
+    const savedRates = JSON.parse(
+      localStorage.getItem(COLLECTION_FX_STORAGE_KEY) || "null",
+    );
+    if (validCollectionFxRates(savedRates)) return savedRates;
+  } catch {}
+  return { ...COLLECTION_FX_FALLBACK };
+}
+
+function collectionValueMoney(value, currency) {
+  if (state.settings.valuationCurrency !== "dkk") return money(value, currency);
+  const rate = currency === "EUR"
+    ? collectionFxRates.eurDkk
+    : currency === "USD"
+    ? collectionFxRates.eurDkk / collectionFxRates.eurUsd
+    : 1;
+  return money(value * rate, "DKK");
+}
+
+function collectionFxDateLabel() {
+  const date = new Date(`${collectionFxRates.date}T12:00:00Z`);
+  return Number.isNaN(date.getTime()) ? collectionFxRates.date :
+    new Intl.DateTimeFormat(
+      state.settings.language === "da" ? "da-DK" : "en-GB",
+      { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" },
+    ).format(date);
+}
+
+function updateCollectionCurrencyControl() {
+  const select = document.querySelector("#collectionCurrency");
+  const label = document.querySelector("#collectionCurrencyLabel");
+  const rate = document.querySelector("#collectionCurrencyRate");
+  if (!select || !label || !rate) return;
+  label.textContent = t("collectionCurrency");
+  select.setAttribute("aria-label", t("collectionCurrency"));
+  select.querySelector('[value="market"]').textContent = t("marketCurrencies");
+  select.querySelector('[value="dkk"]').textContent = t("danishKroner");
+  select.value = normalizeValuationCurrency(state.settings.valuationCurrency);
+  rate.hidden = select.value !== "dkk";
+  rate.textContent = t("ecbReferenceRate", { date: collectionFxDateLabel() });
+}
+
+function renderCurrencyDependentViews() {
+  updateCollectionCurrencyControl();
+  if (collectionDialog.open) {
+    renderCollectionSummary();
+    renderCollectionCards();
+  }
+  if (cardDialog.open && cardDialog.cardData) openCard(cardDialog.cardData);
+}
+
+async function refreshCollectionExchangeRates(force = false) {
+  if (
+    !force && collectionFxRates.fetchedAt &&
+    Date.now() - collectionFxRates.fetchedAt < COLLECTION_FX_MAX_AGE
+  ) return false;
+  try {
+    const response = await fetch(
+      "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml",
+      { cache: "no-cache", credentials: "omit", referrerPolicy: "no-referrer" },
+    );
+    if (!response.ok) throw new Error("Exchange rates unavailable");
+    const xml = new DOMParser().parseFromString(await response.text(), "text/xml");
+    const day = xml.querySelector("Cube[time]");
+    const nextRates = {
+      date: day?.getAttribute("time") || "",
+      fetchedAt: Date.now(),
+      eurDkk: Number(
+        day?.querySelector('Cube[currency="DKK"]')?.getAttribute("rate"),
+      ),
+      eurUsd: Number(
+        day?.querySelector('Cube[currency="USD"]')?.getAttribute("rate"),
+      ),
+    };
+    if (!validCollectionFxRates(nextRates)) {
+      throw new Error("Invalid exchange rates");
+    }
+    collectionFxRates = nextRates;
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(COLLECTION_FX_STORAGE_KEY, JSON.stringify(nextRates));
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -373,6 +373,68 @@ test("one owned card can record multiple printings", () => {
   assert.deepEqual([...variants], ["holo", "firstEdition"]);
 });
 
+function loadCardCurrency({
+  language = "da",
+  valuationCurrency = "dkk",
+  cachedRates = null,
+} = {}) {
+  const context = vm.createContext({
+    state: { settings: { language, valuationCurrency } },
+    localStorage: {
+      getItem() { return cachedRates ? JSON.stringify(cachedRates) : null; },
+      setItem() {},
+    },
+  });
+  vm.runInContext(cardsSource, context, { filename: "js/cards.js" });
+  return context;
+}
+
+test("collection values can display in Danish kroner while preserving market currencies", () => {
+  const cards = loadCardCurrency();
+  assert.match(cards.collectionValueMoney(10, "EUR"), /74,75/);
+  assert.match(cards.collectionValueMoney(10, "USD"), /66,85/);
+  const detailPrices = cards.priceSummary({
+    cardmarket: { unit: "EUR", trend: 10 },
+    tcgplayer: { unit: "USD", holofoil: { marketPrice: 10 } },
+  });
+  assert.match(detailPrices[0].value, /74,75/);
+  assert.match(detailPrices[1].value, /66,85/);
+
+  cards.state.settings.valuationCurrency = "market";
+  assert.match(cards.collectionValueMoney(10, "EUR"), /10,00/);
+  assert.match(cards.collectionValueMoney(10, "USD"), /10,00/);
+});
+
+test("collection currency uses a valid cached ECB rate and rejects invalid rates", () => {
+  const cached = loadCardCurrency({
+    cachedRates: {
+      date: "2026-10-13",
+      fetchedAt: Date.now(),
+      eurDkk: 7.5,
+      eurUsd: 1.25,
+    },
+  });
+  assert.match(cached.collectionValueMoney(10, "EUR"), /75,00/);
+  assert.match(cached.collectionValueMoney(10, "USD"), /60,00/);
+
+  const invalid = loadCardCurrency({
+    cachedRates: {
+      date: "2026-10-13",
+      fetchedAt: Date.now(),
+      eurDkk: 750,
+      eurUsd: 0,
+    },
+  });
+  assert.match(invalid.collectionValueMoney(10, "EUR"), /74,75/);
+});
+
+test("currency preference is sanitized across local, backup, and sync paths", () => {
+  assert.match(coreSource, /normalizeValuationCurrency\(value\)/);
+  assert.match(coreSource, /saved\.settings\?\.valuationCurrency/);
+  assert.match(collectionSource, /state\.settings\.valuationCurrency = normalizeValuationCurrency/);
+  assert.match(syncSource, /valuationCurrency: normalizeValuationCurrency/);
+});
+
 function loadTrade(overrides = {}) {
   const storage = new Map();
   const context = vm.createContext({

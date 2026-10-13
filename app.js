@@ -54,8 +54,8 @@ function applySettings() {
   setText(".about p", "aboutDescription");
   setText("footer>p", "footer");
   setText(".collection-button span", "myCollection");
-  setText(".collection-content>.section-kicker", "savedDevice");
-  setText(".collection-content>h2", "myCollection");
+  setText("#collectionStorageKicker", "savedDevice");
+  setText("#collectionTitle", "myCollection");
   setText(".collection-intro", "collectionPrivacy");
   setText("#completionKicker", "completionKicker");
   setText("#completionTitle", "completionTitle");
@@ -74,6 +74,9 @@ function applySettings() {
   );
   setText("#exportCollection", "exportBackup");
   setText("#importCollection", "importBackup");
+  if (typeof updateCollectionCurrencyControl === "function") {
+    updateCollectionCurrencyControl();
+  }
   setText(".collection-browser-heading .section-kicker", "cardChecklist");
   setText("#collectionCardsTitle", "savedCards");
   setText(".favorite-heading .section-kicker", "favoritePokemon");
@@ -456,6 +459,21 @@ document.querySelector("#importCollection").addEventListener(
 document.querySelector("#importFile").addEventListener("change", (e) => {
   if (e.target.files[0]) importCollection(e.target.files[0]);
 });
+document.querySelector("#collectionCurrency").addEventListener(
+  "change",
+  async (event) => {
+    state.settings.valuationCurrency = normalizeValuationCurrency(
+      event.target.value,
+    );
+    saveUser();
+    renderCurrencyDependentViews();
+    if (state.settings.valuationCurrency !== "dkk") return;
+    const changed = await refreshCollectionExchangeRates(true);
+    if (changed && state.settings.valuationCurrency === "dkk") {
+      renderCurrencyDependentViews();
+    }
+  },
+);
 document.querySelector(".completion-controls").addEventListener(
   "change",
   updateCompletionButtons,
@@ -573,6 +591,13 @@ window.addEventListener("popstate", () => {
 
 updateMainOrderControl();
 loadPokemon();
+if (state.settings.valuationCurrency === "dkk") {
+  refreshCollectionExchangeRates().then((changed) => {
+    if (changed && state.settings.valuationCurrency === "dkk") {
+      renderCurrencyDependentViews();
+    }
+  });
+}
 
 if (
   "serviceWorker" in navigator &&

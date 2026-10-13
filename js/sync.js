@@ -90,6 +90,9 @@ function syncSnapshotHasData(snapshot = {}) {
 }
 
 function normalizeSyncSnapshot(snapshot = {}) {
+  const settings = snapshot.settings && typeof snapshot.settings === "object"
+    ? snapshot.settings
+    : {};
   return {
     version: 6,
     favorites: Array.isArray(snapshot.favorites) ? snapshot.favorites : [],
@@ -112,9 +115,12 @@ function normalizeSyncSnapshot(snapshot = {}) {
       : [],
     trackedSets: Array.isArray(snapshot.trackedSets) ? snapshot.trackedSets : [],
     completionMode: snapshot.completionMode === "master" ? "master" : "set",
-    settings: snapshot.settings && typeof snapshot.settings === "object"
-      ? snapshot.settings
-      : {},
+    settings: {
+      ...settings,
+      valuationCurrency: normalizeValuationCurrency(
+        settings.valuationCurrency,
+      ),
+    },
   };
 }
 
@@ -130,6 +136,9 @@ function applyRemoteSnapshot(snapshot) {
   state.trackedSets = new Set(clean.trackedSets);
   state.completionMode = clean.completionMode;
   state.settings = { ...state.settings, ...clean.settings };
+  state.settings.valuationCurrency = normalizeValuationCurrency(
+    state.settings.valuationCurrency,
+  );
   localStorage.setItem("cardedex-user", JSON.stringify(clean));
   syncApplyingRemote = false;
   if (typeof applySettings === "function") applySettings();
