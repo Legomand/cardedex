@@ -189,14 +189,7 @@
             <h2 id="collectionTitle">My collection</h2>
             <p class="collection-intro">This development build keeps a durable local cache while the managed account backend is prepared.</p>
           </div>
-          <div class="collection-tools">
-            <label class="collection-currency"><span id="collectionCurrencyLabel">Values</span><select id="collectionCurrency"><option value="market">Market currencies (EUR/USD)</option><option value="dkk">Danish kroner (DKK)</option></select><small id="collectionCurrencyRate" hidden></small></label>
-            <button id="exportCollection">Export backup</button>
-            <button id="importCollection">Import backup</button>
-            <input type="file" id="importFile" accept="application/json" hidden />
-          </div>
         </header>
-        <div class="collection-stats" id="collectionStats"></div>
         <section class="collection-browser" aria-labelledby="collectionCardsTitle">
           <div class="collection-browser-heading">
             <div>
@@ -211,6 +204,24 @@
         </section>
 
         <div class="collection-secondary">
+          <details class="collection-disclosure collection-overview">
+            <summary class="collection-overview-heading">
+              <div>
+                <span class="section-kicker" id="collectionOverviewKicker">Collection overview</span>
+                <h3 id="collectionOverviewTitle">Values &amp; backup</h3>
+              </div>
+            </summary>
+            <div class="collection-disclosure-body">
+              <div class="collection-stats" id="collectionStats"></div>
+              <div class="collection-tools">
+                <label class="collection-currency"><span id="collectionCurrencyLabel">Values</span><select id="collectionCurrency"><option value="market">Market currencies (EUR/USD)</option><option value="dkk">Danish kroner (DKK)</option></select><small id="collectionCurrencyRate" hidden></small></label>
+                <button id="exportCollection">Export backup</button>
+                <button id="importCollection">Import backup</button>
+                <input type="file" id="importFile" accept="application/json" hidden />
+              </div>
+            </div>
+          </details>
+
           <details class="collection-disclosure completion-tracker">
             <summary class="completion-heading">
               <div>

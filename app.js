@@ -57,6 +57,8 @@ function applySettings() {
   setText("#collectionStorageKicker", "savedDevice");
   setText("#collectionTitle", "myCollection");
   setText(".collection-intro", "collectionPrivacy");
+  setText("#collectionOverviewKicker", "collectionOverview");
+  setText("#collectionOverviewTitle", "valuesAndBackup");
   setText("#completionKicker", "completionKicker");
   setText("#completionTitle", "completionTitle");
   setText("#completionScope", "completionScope");

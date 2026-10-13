@@ -248,6 +248,8 @@ const words = {
     myCollection: "My collection",
     collectionPrivacy:
       "Your favorites and card checklist stay private on this device.",
+    collectionOverview: "Collection overview",
+    valuesAndBackup: "Values & backup",
     completionKicker: "Completion goals",
     completionTitle: "Sets & series",
     completionScope: "Includes secret cards",
@@ -442,6 +444,8 @@ const words = {
     myCollection: "Min samling",
     collectionPrivacy:
       "Dine favoritter og din kortoversigt forbliver private på denne enhed.",
+    collectionOverview: "Samlingsoversigt",
+    valuesAndBackup: "Værdier og sikkerhedskopi",
     completionKicker: "Samlingsmål",
     completionTitle: "Sæt og serier",
     completionScope: "Inkluderer hemmelige kort",

@@ -66,6 +66,19 @@ test("binder controls exist once and are wired to scanner code", () => {
   }
 });
 
+test("saved cards are the primary collection workspace", () => {
+  const browserPosition = html.indexOf('class="collection-browser"');
+  const overviewPosition = html.indexOf('class="collection-disclosure collection-overview"');
+  const statsPosition = html.indexOf('id="collectionStats"');
+  assert.ok(browserPosition > -1);
+  assert.ok(overviewPosition > browserPosition);
+  assert.ok(statsPosition > overviewPosition);
+  assert.doesNotMatch(
+    html.slice(overviewPosition, html.indexOf(">", overviewPosition) + 1),
+    /\sopen(?:\s|>)/,
+  );
+});
+
 test("auto layout chooses common 9-pocket and 12-pocket pages", () => {
   const scanner = loadScanner();
   assert.equal(scanner.scannerBinderLayoutFor({ width: 1000, height: 1400 }).id, "3x3");
