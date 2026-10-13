@@ -24,9 +24,12 @@ local sync scaffolding, and Trade Binder previews.
 - Entire runtime is browser-side. It has no Codex, AI Army, private server, or
   tailnet dependency. Network access is still required for the existing CDN
   Tesseract loader and TCGdex catalogue/image lookups.
-- Passwordless Supabase accounts with an IndexedDB snapshot and operation
-  journal, authenticated private sync, offline retry, idempotent operation IDs,
-  server revisions, and an explicit conflict choice.
+- Self-service Supabase accounts with one email identity across devices,
+  six-digit email-code signup/login, an account-scoped IndexedDB snapshot and operation
+  journal, confirmed server baselines, exact operation acknowledgements,
+  authenticated private sync, bounded retry, and explicit per-field conflict
+  review. The version 7 sync projection excludes device presentation settings;
+  version 6 local storage and backup imports remain supported.
 - Trade Binder JSON export/import with all, duplicate-only, or selected-card
   scopes; optional wishlist matching; expiry validation; read-only inspection;
   two-way wanted-card comparison; and draft trade-proposal export.

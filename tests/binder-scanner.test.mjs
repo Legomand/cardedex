@@ -445,7 +445,8 @@ test("currency preference is sanitized across local, backup, and sync paths", ()
   assert.match(coreSource, /normalizeValuationCurrency\(value\)/);
   assert.match(coreSource, /saved\.settings\?\.valuationCurrency/);
   assert.match(collectionSource, /state\.settings\.valuationCurrency = normalizeValuationCurrency/);
-  assert.match(syncSource, /valuationCurrency: normalizeValuationCurrency/);
+  assert.doesNotMatch(syncSource, /valuationCurrency: normalizeValuationCurrency/);
+  assert.match(syncSource, /settings: state\.settings/);
 });
 
 function loadTrade(overrides = {}) {
@@ -493,10 +494,11 @@ test("Trade Binder and private account sync contracts are present", () => {
   assert.match(tradeSource, /cardedex-trade-binder\/v1/);
   assert.match(syncSource, /cardedex-user-data/);
   assert.match(syncSource, /sync_collection_snapshot/);
-  assert.match(syncSource, /Sync paused · choose a collection below/);
+  assert.match(syncSource, /Sync paused · review both collections below/);
   assert.match(authSource, /signInWithOtp/);
-  assert.match(authSource, /flowType: "pkce"/);
-  assert.match(accountSyncSql, /security invoker/);
+  assert.match(authSource, /shouldCreateUser: true/);
+  assert.match(authSource, /verifyOtp/);
+  assert.match(accountSyncSql, /security definer/);
   assert.match(accountSyncSql, /v_current_revision <> p_base_revision/);
   assert.match(accountSyncSql, /grant execute[\s\S]+to authenticated/);
   assert.doesNotMatch(accountSyncSql, /grant execute[\s\S]+to anon/);

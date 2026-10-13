@@ -267,13 +267,18 @@
 
           <details class="collection-disclosure account-panel">
             <summary class="account-heading">
-              <div><strong id="accountTitle">Cardedex account</strong><small id="accountDescription">Sign in to keep your collection synchronized across devices.</small></div>
+              <div><strong id="accountTitle">Cardedex account</strong><small id="accountDescription">Enter your email to create an account or sign in on this device.</small></div>
               <span class="account-badge" id="accountBadge">Signed out</span>
             </summary>
             <div class="collection-disclosure-body">
               <form class="account-sign-in" id="accountSignInForm">
                 <label><span id="accountEmailLabel">Email address</span><input id="accountEmail" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
-                <button type="submit" id="accountSignIn">Email me a sign-in link</button>
+                <button type="submit" id="accountSignIn">Continue with email</button>
+              </form>
+              <form class="account-sign-in account-code" id="accountCodeForm" hidden>
+                <label><span id="accountCodeLabel">Six-digit sign-in code</span><input id="accountCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="123456" /></label>
+                <button type="submit" id="accountVerifyCode">Sign in on this device</button>
+                <button type="button" id="accountCancelCode">Use another email</button>
               </form>
               <div class="account-signed-in" id="accountSignedIn" hidden>
                 <span id="accountIdentity"></span>
@@ -289,7 +294,8 @@
                 <div class="sync-choice" id="syncChoice" hidden>
                   <strong id="syncChoiceTitle">Choose which collection to keep</strong>
                   <small id="syncChoiceDescription"></small>
-                  <div><button type="button" id="syncUseDevice">Use this device</button><button type="button" id="syncUseAccount">Use account copy</button></div>
+                  <div class="sync-conflicts" id="syncConflictList"></div>
+                  <div class="sync-choice-actions"><button type="button" id="syncUseCombined" hidden>Use reviewed combination</button><button type="button" id="syncUseDevice">Use this device</button><button type="button" id="syncUseAccount">Use account copy</button><button type="button" id="syncDownloadCopies">Download both copies</button></div>
                 </div>
               </section>
             </div>

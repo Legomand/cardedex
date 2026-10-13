@@ -281,7 +281,9 @@ footer p { max-width:510px; color:var(--muted); font-size:10px; text-align:right
 .account-sign-in input { min-width:0; padding:10px 11px; border:1px solid var(--line); border-radius:9px; outline:0; color:var(--ink); background:var(--paper); font:11px var(--body); text-transform:none; }
 .account-sign-in input:focus { border-color:var(--green); box-shadow:0 0 0 3px rgba(75,113,88,.12); }
 .account-sign-in button,.account-signed-in button,.sync-choice button { min-height:37px; padding:9px 12px; border:0; border-radius:9px; cursor:pointer; color:var(--on-control); background:var(--control); font-size:10px; font-weight:700; }
-.account-sign-in button:disabled,.account-signed-in button:disabled { cursor:wait; opacity:.55; }
+.account-sign-in button:disabled,.account-signed-in button:disabled,.sync-choice button:disabled { cursor:wait; opacity:.55; }
+.account-code { grid-template-columns:minmax(0,1fr) auto auto; }
+.account-code button:last-child { color:var(--ink); background:var(--cream); }
 .account-signed-in { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .account-signed-in[hidden],.account-sign-in[hidden] { display:none; }
 .account-signed-in span { overflow:hidden; color:var(--muted); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
@@ -305,7 +307,17 @@ footer p { max-width:510px; color:var(--muted); font-size:10px; text-align:right
 .sync-choice strong { font-size:10px; }
 .sync-choice small { margin-top:4px; color:var(--muted); font-size:9px; line-height:1.5; }
 .sync-choice>div { display:flex; flex-wrap:wrap; gap:7px; margin-top:10px; }
-.sync-choice button:last-child { color:var(--ink); background:var(--cream); }
+.sync-choice .sync-choice-actions button:nth-last-child(-n+2) { color:var(--ink); background:var(--cream); }
+.sync-conflicts { display:grid!important; gap:8px!important; }
+.sync-conflicts:empty { display:none!important; }
+.sync-conflicts fieldset { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; min-width:0; margin:0; padding:10px; border:1px solid var(--line); border-radius:10px; }
+.sync-conflicts legend { padding:0 5px; color:var(--muted); font-size:9px; font-weight:700; }
+.sync-conflicts label { display:flex; align-items:flex-start; gap:7px; min-width:0; padding:9px; border:1px solid var(--line); border-radius:8px; background:var(--paper); text-transform:none; }
+.sync-conflicts label:has(input:checked) { border-color:var(--green); box-shadow:0 0 0 2px rgba(75,113,88,.12); }
+.sync-conflicts input { width:auto; margin:2px 0 0; padding:0; box-shadow:none; }
+.sync-conflicts span,.sync-conflicts small { display:block; min-width:0; overflow-wrap:anywhere; }
+.sync-conflicts span { color:var(--ink); font-size:9px; font-weight:700; }
+.sync-conflicts small { margin-top:3px; color:var(--muted); font-weight:400; }
 .completion-tracker { margin-top:28px; padding:22px; border:1px solid var(--line); border-radius:16px; background:var(--white); }
 .completion-heading { display:flex; align-items:end; justify-content:space-between; gap:18px; }
 .completion-heading h3 { margin:5px 0 0; font:700 28px var(--display); }
@@ -555,7 +567,7 @@ body.drawer-open { overflow:hidden; }
   .collection-filters select { min-width:0; min-height:44px; font-size:12px; }
   .collection-card-grid { gap:9px; }
   .collection-card { padding:7px; }
-  .collection-secondary { grid-template-columns:1fr; margin-top:12px; }
+  .collection-secondary { grid-template-columns:minmax(0,1fr); margin-top:12px; }
   .collection-disclosure[open] { grid-column:auto; }
   .collection-disclosure>summary { min-height:72px; padding:16px 48px 16px 16px; }
   .collection-disclosure>summary::after { right:16px; }
@@ -567,12 +579,14 @@ body.drawer-open { overflow:hidden; }
   .completion-controls { grid-template-columns:1fr; }
   .completion-control select,.completion-control button { min-height:44px; }
   .account-badge { width:max-content; }
-  .account-sign-in { grid-template-columns:1fr; }
+  .account-sign-in,.account-code { grid-template-columns:1fr; }
   .account-sign-in input,.account-sign-in button { min-height:44px; }
   .account-signed-in { align-items:stretch; flex-direction:column; }
   .account-signed-in button { width:100%; min-height:44px; }
-  .sync-panel { align-items:stretch; flex-direction:column; padding:14px; }
+  .sync-panel { align-items:stretch; flex-flow:column nowrap; flex-wrap:nowrap!important; padding:14px; }
+  .account-panel,.sync-panel,.sync-choice,.sync-conflicts { width:100%; min-width:0; }
   .sync-panel label { flex-basis:auto; }
+  .sync-conflicts fieldset { grid-template-columns:1fr; }
   .trade-share-controls { grid-template-columns:1fr; }
   .favorite-section .favorite-list { grid-template-columns:repeat(3,1fr); padding:0 16px 16px; }
 }

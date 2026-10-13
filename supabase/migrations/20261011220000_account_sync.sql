@@ -18,6 +18,10 @@ begin
 end
 $$;
 
+-- Force collection writes through the revision-checked function below.
+revoke insert, update, delete on public.collections from authenticated;
+revoke all on public.sync_operations from authenticated;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -59,7 +63,7 @@ create or replace function public.sync_collection_snapshot(
 )
 returns jsonb
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
@@ -83,6 +87,9 @@ begin
   end if;
   if p_snapshot is null or jsonb_typeof(p_snapshot) <> 'object' then
     raise exception 'Snapshot must be a JSON object' using errcode = '22023';
+  end if;
+  if coalesce(p_snapshot ->> 'version', '') <> '7' then
+    raise exception 'Unsupported snapshot version' using errcode = '22023';
   end if;
   if octet_length(p_snapshot::text) > 5242880 then
     raise exception 'Snapshot exceeds 5 MiB' using errcode = '22023';
