@@ -96,7 +96,7 @@ nav a.active::after { content:""; position:absolute; width:4px; height:4px; bord
 .artist-suggestions button { display:block; width:100%; padding:9px 10px; border:0; border-radius:8px; cursor:pointer; color:var(--ink); background:transparent; text-align:left; font-size:11px; }
 .artist-suggestions button:hover,.artist-suggestions button:focus { outline:0; background:var(--cream); }
 .artist-suggestion-note { display:block; padding:9px 10px; color:var(--muted); font-size:11px; }
-.artist-status { min-height:15px; margin:7px 0 20px; color:var(--muted); font-size:10px; text-align:right; }
+.artist-status { width:min(340px,100%); min-height:15px; margin:7px 0 20px; color:var(--muted); font-size:10px; text-align:left; }
 .catalog-filter-status { min-height:15px; margin:-16px 0 20px; color:var(--muted); font-size:10px; text-align:right; }
 .rarity-filter-status { margin-top:-16px; }
 .pokemon-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:17px; margin-top:15px; }
@@ -267,7 +267,6 @@ footer p { max-width:510px; color:var(--muted); font-size:10px; text-align:right
 .collection-dialog::backdrop { background:rgba(13,18,15,.72); backdrop-filter:blur(7px); }
 .collection-content { max-height:90vh; overflow-y:auto; overflow-x:hidden; padding:45px; }
 .collection-content h2 { margin:8px 0; font:700 43px var(--display); }
-.collection-intro { color:var(--muted); font-size:13px; }
 .collection-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin:25px 0; }
 .collection-stats div { min-width:0; padding:18px; border:1px solid var(--line); border-radius:13px; background:var(--white); }
 .collection-stats strong { display:block; font:700 26px var(--display); }
@@ -359,7 +358,6 @@ footer p { max-width:510px; color:var(--muted); font-size:10px; text-align:right
 .trade-binder { margin-top:28px; padding:22px; border:1px solid var(--line); border-radius:16px; background:var(--white); }
 .trade-heading { display:flex; align-items:end; justify-content:space-between; gap:16px; }
 .trade-heading h3 { margin:5px 0 0; font:700 28px var(--display); }
-.trade-readonly { padding:6px 9px; border-radius:99px; color:var(--green); background:var(--cream); font-size:8px; font-weight:700; }
 .trade-binder>p { margin:12px 0 0; color:var(--muted); font-size:11px; line-height:1.6; }
 .trade-collector-name { display:grid; gap:5px; margin-top:16px; color:var(--muted); font-size:8px; font-weight:700; text-transform:uppercase; }
 .trade-collector-name input { max-width:320px; min-width:0; padding:10px 11px; border:1px solid var(--line); border-radius:9px; outline:0; color:var(--ink); background:var(--paper); font:11px var(--body); text-transform:none; }
@@ -547,7 +545,6 @@ body.drawer-open { overflow:hidden; }
   .trade-page-shell { padding:18px 14px; border-radius:17px; }
   .trade-page-heading { align-items:flex-start; flex-direction:column; gap:10px; padding-bottom:17px; }
   .trade-page-heading h2 { font-size:34px; }
-  .trade-readonly { max-width:100%; }
   .pokemon-card::before{display:none}
   .image-stage::before{content:"";position:absolute;top:50%;left:50%;width:min(145px,100%);aspect-ratio:1;border-radius:50%;background:var(--tint,#e5ede5);opacity:.8;transform:translate(-50%,-50%)}
   .image-stage img{position:relative;z-index:1}
@@ -560,8 +557,7 @@ body.drawer-open { overflow:hidden; }
 .collection-heading { max-width:720px; }
 .collection-heading>div:first-child { min-width:0; }
 .collection-heading h2 { margin:7px 0 5px; font-size:42px; letter-spacing:-.025em; }
-.collection-heading h2,.collection-intro { overflow-wrap:anywhere; }
-.collection-intro { max-width:650px; margin:0; line-height:1.6; }
+.collection-heading h2 { overflow-wrap:anywhere; }
 .collection-tabs { display:flex; gap:4px; margin-top:28px; padding:4px 4px 0; overflow-x:auto; border-bottom:1px solid var(--line); scrollbar-width:thin; }
 .collection-tabs button { position:relative; flex:0 0 auto; min-height:44px; padding:10px 15px 12px; border:0; border-radius:10px 10px 0 0; cursor:pointer; color:var(--muted); background:transparent; font-size:10px; font-weight:700; }
 .collection-tabs button:hover { color:var(--ink); background:var(--cream); }
@@ -643,7 +639,6 @@ body.drawer-open { overflow:hidden; }
 .completion-item-meta span { max-width:100%; white-space:normal; overflow-wrap:anywhere; }
 .completion-remove { flex:0 0 30px; }
 .trade-binder>summary+.collection-disclosure-body>p { margin:0; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:11px; line-height:1.6; }
-.trade-readonly { max-width:48%; flex:0 1 auto; overflow-wrap:anywhere; text-align:center; }
 .trade-summary div { min-width:0; }
 .trade-summary strong,.trade-summary span,.trade-message,.trade-empty,.trade-limit { max-width:100%; overflow-wrap:anywhere; }
 .trade-actions button,.trade-proposal-button,.trade-inspector-toolbar button { max-width:100%; overflow-wrap:anywhere; white-space:normal; }
@@ -682,7 +677,6 @@ body.drawer-open { overflow:hidden; }
   .collection-dialog .dialog-close { position:fixed; top:12px; right:12px; z-index:3; }
   .collection-heading { padding:0 2px; }
   .collection-heading h2 { font-size:35px; }
-  .collection-intro { padding-right:36px; font-size:12px; }
   .collection-tabs { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:2px; margin-right:-8px; margin-left:-8px; padding-right:0; padding-left:0; overflow:visible; }
   .collection-tabs button { width:100%; min-width:0; min-height:46px; padding:10px 2px 12px; font-size:9px; }
   .collection-tabs button[aria-selected="true"]::after { right:5px; left:5px; }

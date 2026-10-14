@@ -864,7 +864,6 @@ function collectorDisplayName() {
 function applySyncLanguage() {
   const da = state.settings.language === "da";
   const values = {
-    collectionStorageKicker: da ? "Min samling" : "My collection",
     syncTitle: da ? "Sikker kontosynkronisering" : "Secure account sync",
     collectorNameLabel: da ? "Samlernavn" : "Collector name",
   };
@@ -874,10 +873,6 @@ function applySyncLanguage() {
   });
   const name = document.querySelector("#collectorName");
   if (name) name.placeholder = da ? "Dit viste navn" : "Your display name";
-  const intro = document.querySelector(".collection-intro");
-  if (intro) intro.textContent = da
-    ? "Din samling gemmes straks på enheden. Enhedernes ændringer gennemgås eksplicit ved konflikt."
-    : "Your collection saves immediately on this device. Device changes are explicitly reviewed on conflict.";
   if (typeof applyAccountLanguage === "function") applyAccountLanguage();
   if (!document.querySelector("#syncChoice")?.hidden) {
     showSyncChoice(remoteSync.conflictData?.reason || "conflict");

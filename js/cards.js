@@ -440,9 +440,9 @@ function renderCardFilters() {
     illustrators.map((v) =>
       `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`
     ).join("")
-  }</select><button id="advancedFilters" ${
-    state.advancedLoaded ? "disabled" : ""
-  }>${state.advancedLoaded ? t("offline") : t("advanced")}</button>`;
+  }</select>${
+    state.advancedLoaded ? "" : `<button id="advancedFilters">${t("advanced")}</button>`
+  }`;
   bar.querySelectorAll("select").forEach((s) => {
     s.value = state.cardFilters[s.dataset.filter] || "all";
     s.addEventListener("change", (e) => {
@@ -450,7 +450,7 @@ function renderCardFilters() {
       renderCards();
     });
   });
-  document.querySelector("#advancedFilters").addEventListener(
+  document.querySelector("#advancedFilters")?.addEventListener(
     "click",
     loadAdvancedMetadata,
   );

@@ -56,9 +56,7 @@ function applySettings() {
   setText(".about p", "aboutDescription");
   setText("footer>p", "footer");
   setText(".collection-button span", "myCollection");
-  setText("#collectionStorageKicker", "savedDevice");
   setText("#collectionTitle", "myCollection");
-  setText(".collection-intro", "collectionPrivacy");
   setLabel(".collection-tabs", "collectionTabsLabel");
   setText("#collectionOverviewKicker", "collectionOverview");
   setText("#collectionOverviewTitle", "collectionValues");
@@ -67,7 +65,6 @@ function applySettings() {
   setText("#collectionTabBackup", "backup");
   setText("#collectionTabCompletion", "completionTab");
   setText("#collectionTabFavorites", "collectionFavoritesTab");
-  setText("#backupKicker", "backupKicker");
   setText("#backupTitle", "backupTitle");
   setText("#completionKicker", "completionKicker");
   setText("#completionTitle", "completionTitle");

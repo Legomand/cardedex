@@ -49,13 +49,12 @@ function tradeT(key, values = {}) {
     qrUnavailable: da ? "QR er ikke tilgængelig for dette forslag ({size}/{limit} bytes). Brug importkoden eller filen." : "QR is unavailable for this offer ({size}/{limit} bytes). Use the import code or file.",
     qrHint: da ? "Scan på den anden enhed · {size}/{limit} bytes" : "Scan on the other device · {size}/{limit} bytes",
     saved: da ? "Den delte fil er gemt på denne enhed." : "Shared file saved on this device.",
-    imported: da ? "Trade Binder importeret som skrivebeskyttet samling." : "Trade Binder imported as a read-only collection.",
-    offerImported: da ? "Handelsforslag åbnet som skrivebeskyttet forhåndsvisning." : "Trade offer opened as a read-only preview.",
+    imported: da ? "Trade Binder åbnet." : "Trade Binder opened.",
+    offerImported: da ? "Handelsforslag åbnet." : "Trade offer opened.",
     invalid: da ? "Filen er ikke en gyldig eller understøttet Trade Binder." : "That file is not a valid supported Trade Binder.",
     expired: da ? "Denne Trade Binder er udløbet." : "This Trade Binder has expired.",
     noProposal: da ? "Vælg mindst ét kort til handelsforslaget." : "Choose at least one card for the trade proposal.",
     offerDraft: da ? "Udkast · ingen kort eller antal er blevet ændret" : "Draft · no cards or quantities have been changed",
-    collectionPreview: da ? "Skrivebeskyttet forhåndsvisning · din lokale samling ændres ikke" : "Read-only preview · your local collection is unchanged",
     gives: da ? "giver" : "gives",
     shareSave: da ? "Del eller gem fil" : "Share or save file",
     closePreview: da ? "Luk forhåndsvisning" : "Close preview",
@@ -759,7 +758,7 @@ function renderOutgoingTradeBinder() {
     ? new Date(binder.expiresAt).toLocaleDateString(state.settings.language)
     : (state.settings.language === "da" ? "Udløber ikke" : "No expiry");
   container.innerHTML = `<div class="trade-preview-heading"><div><span>${escapeHtml(state.settings.language === "da" ? "Din delte samling" : "Your shared collection")}</span><h4>${escapeHtml(binder.owner.displayName)}</h4></div><button type="button" data-close-binder-preview aria-label="${escapeHtml(tradeT("closePreview"))}">×</button></div>
-    <p class="trade-preview-note">${escapeHtml(expiry)} · ${escapeHtml(tradeT("collectionPreview"))}</p>
+    <p class="trade-preview-note">${escapeHtml(expiry)}</p>
     <div class="trade-summary"><div><strong>${binder.collection.owned.length}</strong><span>${escapeHtml(tradeT("owned"))}</span></div><div><strong>${copies}</strong><span>${escapeHtml(tradeT("copies"))}</span></div><div><strong>${binder.collection.wanted.length}</strong><span>${escapeHtml(tradeT("wanted"))}</span></div></div>
     <div class="trade-preview-columns"><section><h4>${escapeHtml(state.settings.language === "da" ? "Kort du deler" : "Cards you share")}</h4>${tradeCardGrid(binder.collection.owned, "", 12)}${binder.collection.owned.length > 12 ? `<p class="trade-limit">12 / ${binder.collection.owned.length}</p>` : ""}</section><section><h4>${escapeHtml(state.settings.language === "da" ? "Ønskeliste" : "Wishlist")}</h4>${tradeCardGrid(binder.collection.wanted, "", 12)}${binder.collection.wanted.length > 12 ? `<p class="trade-limit">12 / ${binder.collection.wanted.length}</p>` : ""}</section></div>
     <div class="trade-preview-actions"><button type="button" class="trade-proposal-button" data-share-binder>${escapeHtml(state.settings.language === "da" ? "Del importkode" : "Share import code")}</button><button type="button" data-download-binder>${escapeHtml(state.settings.language === "da" ? "Download fil" : "Download file")}</button></div>`;
@@ -929,8 +928,7 @@ function applyTradeLanguage() {
     tradeNav: da ? "Byt" : "Trade",
     tradeBinderKicker: da ? "Deling af samling" : "Collection sharing",
     tradeBinderTitle: "Trade Binder",
-    tradeReadonlyLabel: da ? "Importerede samlinger er skrivebeskyttede" : "Imported binders stay read-only",
-    tradeBinderIntro: da ? "Eksportér et privat øjebliksbillede, inspicér en anden samling, og find handler uden at sammenflette samlingerne." : "Export a private collection snapshot, inspect someone else's binder, and find useful trades without merging either collection.",
+    tradeBinderIntro: da ? "Del din samling, inspicér en anden samling, og find nyttige handler." : "Share your collection, inspect another binder, and find useful trades.",
     tradeCollectorNameLabel: da ? "Dit navn i delte filer" : "Your name in shared files",
     tradeScopeLabel: da ? "Del" : "Share",
     tradeExpiryLabel: da ? "Udløber" : "Expires",

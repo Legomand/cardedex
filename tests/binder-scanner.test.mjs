@@ -581,7 +581,7 @@ test("Trade Binder and local trade-offer contracts are present", () => {
   assert.match(tradeSource, /data-trade-more/);
   assert.match(tradeSource, /class="trade-card-grid"/);
   assert.match(tradeSource, /data-show-offer-qr/);
-  assert.match(html, /<script src="js\/qr\.js\?v=82"><\/script>\s*<script src="js\/trade\.js\?v=82"><\/script>/);
+  assert.match(html, /<script src="js\/qr\.js\?v=84"><\/script>\s*<script src="js\/trade\.js\?v=84"><\/script>/);
   assert.match(tradeSource, /CDX1\./);
   assert.match(tradeSource, /#trade\/share\//);
   assert.match(html, /<a href="#trade" id="tradeNav">/);
@@ -592,6 +592,21 @@ test("Trade Binder and local trade-offer contracts are present", () => {
   assert.match(appSource, /hash\.startsWith\("#trade\/share\/"\)/);
   assert.match(appSource, /consumeTradeShareHash\(\)/);
   assert.doesNotMatch(html, /js\/auth\.js|js\/sync\.js|backend-config|supabase(?:\.min)?\.js/);
+});
+
+test("implementation details stay out of the collection and Trade Binder UI", () => {
+  assert.doesNotMatch(
+    html,
+    /Cached for offline use|Imported binders stay read-only|Local collection preview|Local handoff|Local transfer|tradeReadonlyLabel|collectionStorageKicker|collection-intro|backupKicker/,
+  );
+  assert.doesNotMatch(
+    tradeSource,
+    /read-only collection|read-only preview|collectionPreview|tradeReadonlyLabel/,
+  );
+  assert.doesNotMatch(cardsSource, /t\("offline"\)/);
+  assert.match(cardsSource, /state\.advancedLoaded \? "" : `<button id="advancedFilters"/);
+  assert.match(coreSource, /indexedDB\.open\("cardedex-cache", 1\)/);
+  assert.match(coreSource, /const cached = cache \? await cacheRead\(url\) : null/);
 });
 
 test("QR transport is offer-only and enforces its byte capacity", () => {
