@@ -610,18 +610,46 @@ function restoreCollectionBackup(data) {
   showCollection();
 }
 
-function exportCollection() {
-  const blob = new Blob([JSON.stringify(collectionBackupSnapshot(), null, 2)], { type: "application/json" });
+async function exportCollection() {
+  const contents = JSON.stringify(collectionBackupSnapshot(), null, 2);
+  const button = document.querySelector("#exportCollection");
+  const message = document.querySelector("#backupMessage");
+  const capacitor = window.Capacitor;
+  if (capacitor?.isNativePlatform?.() && capacitor.getPlatform?.() === "android") {
+    if (button?.disabled) return false;
+    if (button) button.disabled = true;
+    if (message) message.textContent = "";
+    try {
+      const plugin = capacitor.Plugins?.CollectionBackup;
+      if (!plugin?.saveJson) throw new Error("Native backup export unavailable");
+      const result = await plugin.saveJson({ contents });
+      if (message) message.textContent = t(result.cancelled ? "backupExportCancelled" : "backupExportSaved");
+      return !result.cancelled;
+    } catch (error) {
+      console.error("Backup export failed", error);
+      if (message) message.textContent = t("backupExportFailed");
+      alert(t("backupExportFailed"));
+      return false;
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+  const blob = new Blob([contents], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "cardedex-collection-backup.json";
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  return true;
 }
 async function importCollection(file) {
+  const message = document.querySelector("#backupMessage");
+  if (message) message.textContent = "";
   try {
     restoreCollectionBackup(JSON.parse(await file.text()));
+    if (message) message.textContent = t("backupImported");
   } catch {
+    if (message) message.textContent = t("invalidBackup");
     alert(t("invalidBackup"));
   }
 }
@@ -631,7 +659,6 @@ async function copyCollectionImportString() {
   const message = document.querySelector("#collectionStringMessage");
   if (!field) return false;
   const value = encodeCollectionImportString();
-  field.value = value;
   let copied = false;
   try {
     if (navigator.clipboard?.writeText) {
@@ -640,6 +667,7 @@ async function copyCollectionImportString() {
     }
   } catch {}
   if (!copied) {
+    field.value = value;
     field.focus();
     field.select();
   }

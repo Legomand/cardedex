@@ -929,6 +929,8 @@ function applyTradeLanguage() {
     tradeBinderKicker: da ? "Deling af samling" : "Collection sharing",
     tradeBinderTitle: "Trade Binder",
     tradeBinderIntro: da ? "Del din samling, inspicér en anden samling, og find nyttige handler." : "Share your collection, inspect another binder, and find useful trades.",
+    tradeSharingTitle: da ? "Bedst med personer, du kan skrive til, eller personer på samme Wi-Fi/hotspot." : "Best with people you can message, or people on the same Wi-Fi/hotspot.",
+    tradeSharingIntro: da ? "Send importkoder eller filer gennem din sædvanlige beskedapp, eller brug overførsel i nærheden i Android-appen. Aftal handelen i chatten eller personligt; appen har ikke indbygget chat." : "Send import codes or files through your usual messaging app, or use Nearby transfer in the Android app. Agree on the trade in chat or in person; there is no built-in messaging.",
     tradeCollectorNameLabel: da ? "Dit navn i delte filer" : "Your name in shared files",
     tradeScopeLabel: da ? "Del" : "Share",
     tradeExpiryLabel: da ? "Udløber" : "Expires",

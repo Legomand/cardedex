@@ -757,12 +757,22 @@ async function loadAdvancedMetadata() {
   renderCards();
 }
 
-async function openCard(card) {
+async function openCard(card, preserveScroll = false) {
+  const keepPosition = preserveScroll && cardDialog.open && cardDialog.dataset.cardId === card.id;
+  const box = document.querySelector("#cardDetailContent");
+  const detailScrollTop = box.scrollTop;
+  const detailScrollLeft = box.scrollLeft;
+  const scrollTop = cardDialog.scrollTop;
+  const pageX = window.scrollX;
+  const pageY = window.scrollY;
+  const focused = document.activeElement;
+  const focusAttribute = ["data-detail-status", "data-count", "data-print-variant", "data-owned-variant"]
+    .find((name) => focused?.hasAttribute?.(name));
+  const focusValue = focusAttribute ? focused.getAttribute(focusAttribute) : null;
   cardDialog.dataset.cardId = card.id;
   cardDialog.cardData = card;
   if (!cardDialog.open) cardDialog.showModal();
-  const box = document.querySelector("#cardDetailContent");
-  box.innerHTML = `<div class="card-detail-art"><img src="${
+  if (!keepPosition) box.innerHTML = `<div class="card-detail-art"><img src="${
     cardImageUrl(card, "high")
   }" alt="${
     escapeHtml(card.name)
@@ -770,7 +780,7 @@ async function openCard(card) {
     t("loadingDetails")
   }</div>`;
   let full = card;
-  try {
+  if (!keepPosition) try {
     full = { ...card, ...await getJson(`${TCG_API}/cards/${card.id}`) };
     Object.assign(card, full);
     renderCardFilters();
@@ -838,6 +848,21 @@ async function openCard(card) {
   }</span><div class="print-variants">${variants}</div>${
     prices ? `<div class="price-list">${prices}</div>` : ""
   }<div class="market-links"><a href="${cardmarketUrl}" target="_blank">Cardmarket ↗</a><a href="https://www.tcgplayer.com/search/pokemon/product?q=${marketQuery}" target="_blank">TCGplayer ↗</a></div></div>`;
+  if (keepPosition) {
+    const replacement = focusAttribute
+      ? [...box.querySelectorAll("[" + focusAttribute + "]")].find((node) => node.getAttribute(focusAttribute) === focusValue)
+      : null;
+    replacement?.focus({ preventScroll: true });
+    const restore = () => {
+      if (!cardDialog.open || cardDialog.dataset.cardId !== card.id) return;
+      cardDialog.scrollTop = scrollTop;
+      box.scrollTop = detailScrollTop;
+      box.scrollLeft = detailScrollLeft;
+      window.scrollTo({ left: pageX, top: pageY, behavior: "instant" });
+    };
+    restore();
+    requestAnimationFrame(restore);
+  }
 }
 function priceSummary(pricing) {
   const out = [];

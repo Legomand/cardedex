@@ -2,22 +2,166 @@ const scannerDialog = document.querySelector("#scannerDialog");
 const scannerOpen = document.querySelector("#cardScannerOpen");
 const scannerCameraInput = document.querySelector("#scannerCameraInput");
 const scannerGalleryInput = document.querySelector("#scannerGalleryInput");
-const scannerBinderCameraInput = document.querySelector(
-  "#scannerBinderCameraInput",
-);
-const scannerBinderGalleryInput = document.querySelector(
-  "#scannerBinderGalleryInput",
-);
-const scannerBinderLayout = document.querySelector("#scannerBinderLayout");
 const scannerWorkspace = document.querySelector("#scannerWorkspace");
 const scannerPreview = document.querySelector("#scannerPreview");
 const scannerProgress = document.querySelector("#scannerProgress");
 const scannerResults = document.querySelector("#scannerResults");
+const scannerCameraDialog = document.querySelector("#scannerCameraDialog");
+const scannerCameraVideo = document.querySelector("#scannerCameraVideo");
+const scannerCameraCapture = document.querySelector("#scannerCameraCapture");
+const scannerCameraStatus = document.querySelector("#scannerCameraStatus");
 
 let scannerLibraryPromise;
 let scannerPreviewUrl;
 let scannerMatches = [];
 let scannerBinderSession = null;
+let scannerPhotoQueue = [];
+let scannerNextPhotoId = 1;
+let scannerBatchBusy = false;
+let scannerBatchRunning = false;
+let scannerBatchCancelled = false;
+let scannerActiveBatchWorker = null;
+const SCANNER_PHOTO_LIMIT = 20;
+let scannerCameraStream = null;
+let scannerCameraSession = 0;
+let scannerCameraCapturing = false;
+let scannerOcrProgress = null;
+let scannerNativeCameraBusy = false;
+let scannerReviewBusy = false;
+let scannerBrowserWorker = null;
+let scannerBrowserWorkerPromise = null;
+let scannerBrowserWorkerGeneration = 0;
+let scannerBrowserIdleTimer = null;
+const scannerLookupCache = new Map();
+const scannerLookupControllers = new Set();
+
+function scannerNativePlugin() {
+  const capacitor = window.Capacitor;
+  return capacitor?.isNativePlatform?.() && capacitor.getPlatform?.() === "android"
+    ? capacitor.Plugins?.CardScanner : null;
+}
+
+function scannerDeadline(promise, milliseconds = 15000) {
+  let timer;
+  return Promise.race([promise, new Promise((_, reject) => {
+    timer = setTimeout(() => reject(Object.assign(new Error("Scan timed out"), { code: "SCAN_TIMEOUT" })), milliseconds);
+  })]).finally(() => clearTimeout(timer));
+}
+
+async function openNativeScannerCamera(plugin) {
+  if (scannerNativeCameraBusy || scannerPhotoQueue.length >= SCANNER_PHOTO_LIMIT) return;
+  scannerNativeCameraBusy = true;
+  try {
+    const result = await plugin.capturePhotos({
+      limit: SCANNER_PHOTO_LIMIT - scannerPhotoQueue.length, language: state.settings.language,
+    });
+    for (const photo of result.photos || []) {
+      try {
+        const response = await fetch(window.Capacitor.convertFileSrc(photo.uri));
+        if (!response.ok) throw new Error("Photo unavailable");
+        const file = new File([await response.blob()], photo.name, { type: "image/jpeg" });
+        await queueScannerPhotos([file]);
+      } finally {
+        // The queue now owns a Blob; release only this private native temporary file.
+        await plugin.releasePhoto({ name: photo.name }).catch(() => {});
+      }
+    }
+  } catch (error) {
+    console.warn("Native camera unavailable", error.code || "CAMERA_FAILED");
+    scannerProgress.textContent = t("scannerCameraUnavailable");
+  } finally { scannerNativeCameraBusy = false; }
+}
+
+function setScannerCurrentProgress(key, values = {}, percentage = null) {
+  scannerProgress.textContent = t(key, values);
+  const bar = document.querySelector("#scannerCurrentProgress");
+  bar.hidden = false;
+  if (percentage === null) bar.removeAttribute("value");
+  else bar.value = Math.max(0, Math.min(100, percentage));
+  bar.setAttribute("aria-label", t(key, values));
+}
+
+function stopScannerCamera() {
+  scannerCameraSession++;
+  scannerCameraStream?.getTracks().forEach((track) => track.stop());
+  scannerCameraStream = null;
+  scannerCameraVideo.srcObject = null;
+  scannerCameraCapture.disabled = true;
+}
+
+function finishScannerCamera() {
+  stopScannerCamera();
+  if (scannerCameraDialog.open) scannerCameraDialog.close();
+}
+
+async function openScannerCamera() {
+  if (scannerBatchBusy || scannerCameraCapturing) return;
+  const native = scannerNativePlugin();
+  if (native) return openNativeScannerCamera(native);
+  if (!navigator.mediaDevices?.getUserMedia) {
+    // Ordinary browsers without live-camera support retain file capture.
+    resetScannerInput(scannerCameraInput);
+    return;
+  }
+  stopScannerCamera();
+  const session = scannerCameraSession;
+  scannerCameraStatus.textContent = t("scannerCameraStarting");
+  scannerCameraDialog.showModal();
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    });
+    if (session !== scannerCameraSession || !scannerCameraDialog.open) {
+      stream.getTracks().forEach((track) => track.stop());
+      return;
+    }
+    scannerCameraStream = stream;
+    scannerCameraVideo.srcObject = stream;
+    await scannerCameraVideo.play();
+    if (session !== scannerCameraSession) return;
+    scannerCameraStatus.textContent = t("scannerCameraCount", { count: scannerPhotoQueue.length });
+    scannerCameraCapture.disabled = scannerPhotoQueue.length >= SCANNER_PHOTO_LIMIT;
+  } catch (error) {
+    if (session !== scannerCameraSession) return;
+    stopScannerCamera();
+    console.warn("Camera could not start", error);
+    scannerCameraStatus.textContent = t("scannerCameraUnavailable");
+  }
+}
+
+async function captureScannerPhoto() {
+  if (!scannerCameraStream || scannerCameraCapturing || scannerBatchBusy) return;
+  if (scannerPhotoQueue.length >= SCANNER_PHOTO_LIMIT) {
+    scannerCameraStatus.textContent = t("scannerBatchLimit");
+    scannerCameraCapture.disabled = true;
+    return;
+  }
+  if (!scannerCameraVideo.videoWidth || !scannerCameraVideo.videoHeight) return;
+  scannerCameraCapturing = true;
+  scannerCameraCapture.disabled = true;
+  const session = scannerCameraSession;
+  const canvas = document.createElement("canvas");
+  try {
+    canvas.width = scannerCameraVideo.videoWidth;
+    canvas.height = scannerCameraVideo.videoHeight;
+    canvas.getContext("2d", { alpha: false }).drawImage(scannerCameraVideo, 0, 0);
+    const file = await scannerCanvasFile(canvas, `card-photo-${scannerNextPhotoId}.jpg`);
+    // Back/Done during JPEG encoding discards this unqueued frame safely.
+    if (session !== scannerCameraSession) return;
+    await queueScannerPhotos([file]);
+    if (session !== scannerCameraSession) return;
+    scannerCameraStatus.textContent = t("scannerCameraCount", { count: scannerPhotoQueue.length });
+  } catch (error) {
+    console.warn("Camera photo could not be captured", error);
+    if (session === scannerCameraSession) scannerCameraStatus.textContent = t("scannerCameraCaptureFailed");
+  } finally {
+    canvas.width = 1;
+    canvas.height = 1;
+    scannerCameraCapturing = false;
+    scannerCameraCapture.disabled = !scannerCameraStream || scannerPhotoQueue.length >= SCANNER_PHOTO_LIMIT;
+  }
+}
 
 function applyScannerLanguage() {
   const text = (selector, key) => {
@@ -35,10 +179,17 @@ function applyScannerLanguage() {
   text("#scannerIntro", "scannerIntro");
   text("#scannerCameraLabel", "takePhoto");
   text("#scannerGalleryLabel", "choosePicture");
-  text("#scannerBinderCameraLabel", "scanBinderPhoto");
-  text("#scannerBinderGalleryLabel", "chooseBinderPhoto");
-  text("#scannerLayoutLabel > span", "binderLayout");
-  text("#scannerPrivacy", "scannerPrivacy");
+  text("#scannerTipsTitle", "scannerTipsTitle");
+  text("#scannerTips", "scannerTips");
+  text("#scannerBatchIntro", "scannerBatchIntro");
+  text("#scannerBatchStart", "scannerBatchStart");
+  text("#scannerBatchClear", "scannerBatchClear");
+  text("#scannerCameraTitle", "scannerCameraTitle");
+  text("#scannerCameraDone", "scannerCameraDone");
+  text("#scannerCameraHint", "scannerCameraHint");
+  text("#scannerCameraCapture", "takePhoto");
+  renderScannerPhotoQueue();
+  text("#scannerPrivacy", scannerNativePlugin() ? "scannerNativePrivacy" : "scannerPrivacy");
 }
 
 function openScanner() {
@@ -67,6 +218,147 @@ function loadScannerLibrary() {
     throw error;
   });
   return scannerLibraryPromise;
+}
+
+async function disposeBrowserScannerWorker() {
+  clearTimeout(scannerBrowserIdleTimer);
+  scannerBrowserIdleTimer = null;
+  scannerBrowserWorkerGeneration++;
+  const worker = scannerBrowserWorker;
+  scannerBrowserWorker = null;
+  scannerBrowserWorkerPromise = null;
+  if (worker) await worker.terminate().catch(() => {});
+}
+
+async function acquireBrowserScannerWorker(Tesseract) {
+  clearTimeout(scannerBrowserIdleTimer);
+  scannerBrowserIdleTimer = null;
+  if (scannerBrowserWorker) return scannerBrowserWorker;
+  if (scannerBrowserWorkerPromise) return scannerBrowserWorkerPromise;
+  const generation = scannerBrowserWorkerGeneration;
+  const pending = (async () => {
+    const worker = await Tesseract.createWorker("eng", 1, {
+      logger(message) {
+        if (scannerBatchCancelled) return;
+        if (message.status === "recognizing text") scannerOcrProgress?.(message.progress || 0);
+        else if (!scannerOcrProgress && message.status) {
+          setScannerCurrentProgress("scannerEngineLoading", {
+            progress: Math.round(Math.max(0, Math.min(1, message.progress || 0)) * 100),
+          });
+        }
+      },
+    });
+    // Closing while the model initializes must not resurrect an abandoned worker.
+    if (generation !== scannerBrowserWorkerGeneration || scannerBatchCancelled) {
+      await worker.terminate().catch(() => {});
+      throw new Error("cancelled");
+    }
+    scannerBrowserWorker = worker;
+    return worker;
+  })();
+  scannerBrowserWorkerPromise = pending;
+  try { return await pending; }
+  finally { if (scannerBrowserWorkerPromise === pending) scannerBrowserWorkerPromise = null; }
+}
+
+function releaseBrowserScannerWorker(worker) {
+  if (!worker || worker !== scannerBrowserWorker) return;
+  clearTimeout(scannerBrowserIdleTimer);
+  // Reuse between batches/rescans, but bound idle WASM memory and release on close.
+  scannerBrowserIdleTimer = setTimeout(() => { void disposeBrowserScannerWorker(); }, 60000);
+  scannerBrowserIdleTimer.unref?.();
+}
+
+function browserScannerNameBand(image) {
+  const canvas = scannerImageTile(image, 0.15, 0.075, 0.9, 0.18);
+  const context = canvas.getContext("2d");
+  context.filter = "invert(1)";
+  context.drawImage(canvas, 0, 0);
+  context.filter = "none";
+  return canvas;
+}
+
+async function recognizeBrowserScannerImage(worker, image, focused = false) {
+  const started = Date.now();
+  const header = focused ? browserScannerNameBand(image) : scannerImageRegion(image, 0, 0.125, 1);
+  const footer = focused
+    ? scannerImageTile(image, 0, 0.78, 0.7, 1)
+    : scannerImageTile(image, 0, 0.88, 0.7, 0.98);
+  let retry, footerRetry;
+  const read = async (canvas, key, start, end, whitelist, psm, threshold, invert = 1) => {
+    if (scannerBatchCancelled) throw new Error("cancelled");
+    await worker.setParameters({
+      preserve_interword_spaces: "1", tessedit_pageseg_mode: String(psm),
+      thresholding_method: String(threshold), tessedit_do_invert: String(invert),
+      // Reset for every read: a footer whitelist must never leak into the next name.
+      tessedit_char_whitelist: whitelist,
+    });
+    const report = (progress) => {
+      if (scannerBatchCancelled) return;
+      const value = Math.max(0, Math.min(1, progress));
+      setScannerCurrentProgress(key, { progress: Math.round(value * 100) }, start + value * (end - start));
+    };
+    scannerOcrProgress = report;
+    report(0);
+    const result = await scannerDeadline(worker.recognize(canvas, {}, {
+      text: true, blocks: false, hocr: false, tsv: false,
+    }), Math.max(1, 15000 - (Date.now() - started)));
+    if (scannerBatchCancelled) throw new Error("cancelled");
+    report(1);
+    return result.data.text || "";
+  };
+  try {
+    // Two primary reads, at most one name retry and one footer retry. Attack-text/rotation sweeps and artwork downloads are
+    // not part of the fast path; uncertain results get manual review / Scan again.
+    let topText = await read(header, "scannerBrowserName", 0, 20, "", 6, 0);
+    if (!focused && !scannerNativeNameEvidence({ topText }).strong && Date.now() - started < 10000) {
+      // A tighter, inverted title band also handles white names on dark cards.
+      retry = browserScannerNameBand(image);
+      topText += "\n" + await read(retry, "scannerBrowserName", 20, 30, "", 6, 0);
+    }
+    let bottomText = await read(footer, "scannerBrowserNumber", 30, 45, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/|- ", 11, focused ? 0 : 2, focused ? 1 : 0);
+    let collectorEvidence = browserScannerCollectorEvidence(bottomText);
+    if (!focused && (!collectorEvidence.numbers.length || (!collectorEvidence.totals.length &&
+      !collectorEvidence.numbers.some((number) => /^[A-Z]+\d+$/.test(number)))) && Date.now() - started < 10000) {
+      footerRetry = scannerImageTile(image, 0, 0.78, 0.7, 1);
+      const alternate = await read(footerRetry, "scannerBrowserNumber", 45, 55, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/|- ", 11, 0);
+      bottomText += "\n" + alternate;
+      collectorEvidence = browserScannerCollectorEvidence(alternate);
+    }
+    setScannerCurrentProgress("scannerBrowserNumber", { progress:100 }, 55);
+    return { topText, bottomText, captionText: "", attackText: "", fullText: topText + "\n" + bottomText,
+      collectorEvidence };
+  } finally {
+    scannerOcrProgress = null;
+    header.width = footer.width = 1;
+    header.height = footer.height = 1;
+    if (retry) { retry.width = 1; retry.height = 1; }
+    if (footerRetry) { footerRetry.width = 1; footerRetry.height = 1; }
+  }
+}
+
+function browserScannerCollectorEvidence(text) {
+  const value = String(text).split(/\r?\n/).filter((line) =>
+    !/pokemon|pokémon|nintendo|creatures|game\s*fre/i.test(line) &&
+    !/^\s*[©CBO0]*\s*(?:19|20)\d{2}\b/i.test(line)
+  ).join("\n");
+  const evidence = scannerCollectorEvidence(value);
+  if (evidence.numbers.length && evidence.totals.length) return evidence;
+  const promo = value.match(/\b(SWSH|SVP|SMP|SM|XY|DP|BW|PR)([0-9OQDISBZLT]{2,4})\b/i);
+  if (promo && /\d/.test(promo[2]) && /[OQDISBZLT]/i.test(promo[2])) {
+    const digits = promo[2].toUpperCase().replace(/[OQD]/g,"0").replace(/[ILT]/g,"1").replace(/S/g,"5").replace(/B/g,"8").replace(/Z/g,"2");
+    return { numbers:[normalizeCollectorNumber(promo[1] + digits)], totals:[], uncertain:true };
+  }
+  // Weak footer-only repairs: a slash can be read as L/I or disappear; a border
+  // can become a leading 1. Preserve raw OCR and ALWAYS require manual inclusion.
+  // Restrict to zero-padded three-digit fractions, never copyright/year lines.
+  for (const line of value.split(/\r?\n/)) {
+    const pair = line.match(/\b[1I]?(0\d{2})\s*[LI]\s*(\d{3})\b/i) ||
+      line.match(/\b[1I]?(0\d{2})(\d{3})\b/);
+    if (!pair || Number(pair[2]) < Number(pair[1]) || Number(pair[2]) > 500) continue;
+    return { numbers:[normalizeCollectorNumber(pair[1])], totals:[Number(pair[2])], uncertain:true };
+  }
+  return evidence;
 }
 
 function scannerMedian(values) {
@@ -226,6 +518,11 @@ function scannerCardCrop(bitmap) {
 
 async function prepareScannerImage(file) {
   const bitmap = await createImageBitmap(file);
+  try { return prepareScannerCanvas(bitmap); }
+  finally { bitmap.close(); }
+}
+
+function prepareScannerCanvas(bitmap) {
   const { sourceX, sourceY, sourceWidth, sourceHeight } = scannerCardCrop(
     bitmap,
   );
@@ -257,8 +554,198 @@ async function prepareScannerImage(file) {
     fullImage.height,
   );
   canvas.scannerFullImage = fullImage;
-  bitmap.close();
   return canvas;
+}
+
+async function recognizeNativeScannerImage(plugin, image, focused = false) {
+  const started = Date.now();
+  const read = (canvas) => scannerDeadline(plugin.recognize({
+    base64: canvas.toDataURL("image/jpeg", 0.95).split(",")[1],
+  }), Math.max(1, 15000 - (Date.now() - started)));
+  setScannerCurrentProgress("scannerNativeReading");
+  if (focused) {
+    const header = scannerImageRegion(image, 0, 0.2, 1.15);
+    const footer = scannerImageRegion(image, 0.74, 1, 1.35);
+    try {
+      const top = await read(header);
+      if (scannerBatchCancelled) throw new Error("cancelled");
+      setScannerCurrentProgress("scannerNativeFooter");
+      const bottom = await read(footer);
+      if (scannerBatchCancelled) throw new Error("cancelled");
+      return { topText: top.text || "", captionText: "", attackText: "", bottomText: bottom.text || "", fullText: [top.text, bottom.text].join("\n") };
+    } finally { header.width = footer.width = 1; header.height = footer.height = 1; }
+  }
+  const result = await read(image);
+  if (scannerBatchCancelled) throw new Error("cancelled");
+  const lines = Array.isArray(result.lines) ? result.lines : [];
+  const region = (start, end) => lines.filter((line) =>
+    Number(line.top) < end && Number(line.bottom) > start
+  ).map((line) => line.text).join("\n");
+  const recognized = {
+    topText: region(0, 0.2), captionText: region(0.16, 0.5),
+    attackText: region(0.4, 0.83), bottomText: region(0.74, 1), fullText: result.text || "",
+  };
+  // At most one focused retry, never the old rotation/tile sweep.
+  const firstFooter = scannerCollectorEvidence(recognized.bottomText);
+  if ((!firstFooter.numbers.length || firstFooter.uncertain) && Date.now() - started < 10000) {
+    setScannerCurrentProgress("scannerNativeFooter");
+    const footer = scannerImageRegion(image, 0.74, 1, 1.2);
+    try {
+      const retry = await read(footer);
+      recognized.bottomText += "\n" + (retry.text || "");
+    } finally { footer.width = 1; footer.height = 1; }
+  }
+  if (scannerBatchCancelled) throw new Error("cancelled");
+  setScannerCurrentProgress("scannerNativeReadComplete", {}, 55);
+  return recognized;
+}
+
+function prepareNativeScannerCanvas(source) {
+  // Photos are already framed by the user. A foreground-component crop can
+  // mistake artwork for the card and silently cut off its printed name/number.
+  const scale = Math.min(1, 2400 / Math.max(source.width, source.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(source.width * scale));
+  canvas.height = Math.max(1, Math.round(source.height * scale));
+  canvas.getContext("2d", { alpha: false }).drawImage(source, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+async function scannerFastJson(url, deadline, { fresh = false } = {}) {
+  if (scannerBatchCancelled) throw new Error("cancelled");
+  if (!fresh && scannerLookupCache.has(url)) return scannerLookupCache.get(url);
+  const controller = new AbortController();
+  scannerLookupControllers.add(controller);
+  const timer = setTimeout(() => controller.abort(), Math.max(1, deadline - Date.now()));
+  try {
+    const response = await fetch(url, { signal: controller.signal, ...(fresh ? { cache: "no-cache" } : {}) });
+    if (!response.ok) throw new Error("Card lookup failed");
+    const value = await response.json();
+    if (scannerLookupCache.size >= 40) scannerLookupCache.delete(scannerLookupCache.keys().next().value);
+    scannerLookupCache.set(url, value);
+    return value;
+  } finally { clearTimeout(timer); scannerLookupControllers.delete(controller); }
+}
+
+async function scannerFastCandidates(recognized) {
+  const rawText = [recognized.topText, recognized.bottomText, recognized.fullText].join("\n");
+  const nameEvidence = scannerNativeNameEvidence(recognized);
+  const pokemon = nameEvidence.pokemon;
+  const footer = recognized.collectorEvidence || scannerCollectorEvidence(recognized.bottomText);
+  const numbers = recognized.collectorNumbers || footer.numbers;
+  const totals = footer.totals;
+  const deadline = Date.now() + 8000;
+  if (!pokemon && !numbers.length) return { candidates: [], pokemon: null, numbers, totals, hp: null };
+  setScannerCurrentProgress("scannerSearching", {}, 60);
+  const details = { hp: findScannedHp(recognized.topText), topText: recognized.topText, collectorTotals: totals };
+  let cards = [];
+  let numberFallback = false;
+  let numberConflict = false;
+  let numberUncertain = footer.uncertain;
+  if (pokemon) {
+    const printedName = tcgNameOverrides[pokemon.slug] || titleCase(pokemon.slug);
+    const result = await scannerFastJson(`${TCG_API}/cards?name=${encodeURIComponent(printedName)}`, deadline);
+    const exactName = new RegExp(`(^|[^a-z0-9])${printedName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`, "i");
+    cards = result.filter((card) => (card.image || cardImageOverrides[card.id]) && exactName.test(card.name));
+    if (nameEvidence.strong && totals.length) {
+      // Narrow by BOTH the confidently read species and printed set count.
+      // A misread digit must never replace Metagross with Dwebble/Crobat.
+      const scoped = await scannerScopedSpecies(printedName, totals, deadline);
+      const allowed = new Set(cards.map((card) => card.id));
+      const sameSpecies = scoped.filter((card) => allowed.has(card.id));
+      if (sameSpecies.length) cards = sameSpecies;
+      else {
+        // A small OCR discrepancy in the denominator is weak evidence, not a
+        // reason to discard a clear name. One bounded adjacent-count request.
+        const adjacent = [...new Set(totals.flatMap((total) => [total - 1, total + 1]).filter((total) => total > 0))];
+        const nearby = await scannerScopedSpecies(printedName, adjacent, deadline);
+        const related = nearby.filter((card) => allowed.has(card.id));
+        if (related.length) { cards = related; details.collectorTotals = adjacent; }
+        else details.collectorTotals = [];
+        numberUncertain = true;
+      }
+    }
+  }
+  // No guessed name must prevent a readable collector number from being tried.
+  // With a printed total, cross-check the set too (061 is shared by many cards).
+  if (!nameEvidence.strong && numbers.length) {
+    const byNumber = await scannerNumberCandidates(numbers, totals, deadline);
+    if (byNumber.length || !pokemon) {
+      numberFallback = !pokemon || !byNumber.some((card) => cards.some((named) => named.id === card.id));
+      cards = byNumber;
+    }
+  }
+  if (nameEvidence.strong && numbers.length && !cards.some((card) => numbers.includes(normalizeCollectorNumber(card.localId)))) {
+    numberConflict = true;
+  }
+  let matches = rankScannedCards(cards, rawText, numbers, details).slice(0, 6);
+  // Text shortlist BEFORE network detail requests. No artwork fingerprint downloads.
+  let done = 0;
+  matches = await scannerMapConcurrent(matches, 3, async (card) => {
+    try { return { ...card, ...await scannerFastJson(`${TCG_API}/cards/${card.id}`, deadline) }; }
+    catch { return card; }
+    finally { done++; if (!scannerBatchCancelled) setScannerCurrentProgress("scannerFastComparing", { done, total: matches.length }, 65 + done / matches.length * 30); }
+  });
+  matches = rankScannedCards(matches, rawText, numbers, details).slice(0, 5);
+  return { candidates: matches, pokemon: numberFallback ? null : pokemon, numbers, totals, numberFallback, numberConflict, numberUncertain, hp: details.hp };
+}
+
+function scannerNativeNameEvidence(recognized) {
+  const header = String(recognized.topText || "").split(/\r?\n/).filter((line) =>
+    !/evol\w*\s+from/i.test(line)
+  );
+  for (const line of header) {
+    const exact = findScannedPokemon(line, 0);
+    if (exact) return { pokemon: exact, strong: true };
+  }
+  const pokedex = findScannedPokedexPokemon([recognized.captionText, recognized.fullText].join("\n"));
+  if (pokedex) return { pokemon: pokedex, strong: true };
+  return { pokemon: findScannedPokemon(header.join("\n"), 0.2), strong: false };
+}
+
+async function scannerScopedSpecies(name, counts, deadline) {
+  // Numeric nested fields do not reliably support the API's pipe operator.
+  // At most four small name+count requests, all sharing the lookup deadline.
+  const lists = await Promise.all(counts.slice(0, 4).map((count) => scannerFastJson(
+    `${TCG_API}/cards?name=${encodeURIComponent(name)}&set.cardCount.official=${encodeURIComponent("eq:" + count)}`, deadline,
+  )));
+  return [...new Map(lists.flat().map((card) => [card.id, card])).values()];
+}
+
+function scannerCollectorEvidence(text) {
+  const value = String(text || "");
+  // Contiguous tokens avoid treating printed set/language codes (CRI EN) as
+  // collector prefixes. Whitespace around the slash may include OCR line breaks.
+  const normalized = value.replace(/\b(TG|GG|SV|SVP|RC|SWSH|SMP|SM|XY|DP|BW|PR)[ \t-]+(?=\d{1,4}\s*[\/|])/gi, "$1");
+  const pairs = [...normalized.matchAll(/\b([A-Z0-9]{1,12})\s*[\/|]\s*([A-Z0-9]{1,8})\b/gi)].filter((match) =>
+    /\d/.test(match[2]) && (/\d/.test(match[1]) || /^[OQDISBZL]{1,4}$/i.test(match[1]))
+  );
+  let uncertain = false;
+  const token = (value, promo = false) => {
+    const original = promo ? value.toUpperCase().replace(/^[A-Z]*EN(?=[0-9OQD]*\d)/i, "") : value.toUpperCase();
+    if (promo && /^(?:TG|GG|SV|SVP|RC|SWSH|SMP|SM|XY|DP|BW|PR|HGSS)\d{1,4}$/.test(original)) return normalizeCollectorNumber(original);
+    if (!/^[0-9OQDISBZL]{1,4}$/.test(original)) { uncertain = true; return null; }
+    const digits = original.replace(/[OQD]/g, "0").replace(/[IL]/g, "1").replace(/S/g, "5").replace(/B/g, "8").replace(/Z/g, "2");
+    if (digits !== original) uncertain = true;
+    return normalizeCollectorNumber(digits);
+  };
+  let numbers = pairs.map((match) => token(match[1], true)).filter(Boolean);
+  const totals = pairs.map((match) => token(match[2])).filter(Boolean).map(Number).filter((total) => total > 0);
+  if (!numbers.length) {
+    numbers = [...value.matchAll(/\b(?:TG|GG|SV|SVP|RC|SWSH|SMP|SM|XY|DP|BW|PR)[ \t-]*\d{1,4}\b/gi)].map((match) => normalizeCollectorNumber(match[0]));
+    if (!numbers.length) numbers = value.split(/\r?\n/).filter((line) => /^\s*\d{2,3}\s*$/.test(line)).map((line) => normalizeCollectorNumber(line));
+  }
+  return { numbers: [...new Set(numbers)].slice(0, 2), totals: [...new Set(totals)].slice(0, 2), uncertain };
+}
+
+async function scannerNumberCandidates(numbers, totals, deadline) {
+  const ids = [...new Set(numbers.flatMap((number) => /^\d+$/.test(number)
+    ? [number, number.padStart(3, "0"), number.padStart(4, "0")] : [number]))];
+  let url = `${TCG_API}/cards?localId=${encodeURIComponent("eq:" + ids.join("|"))}`;
+  if (totals.length) url += `&set.cardCount.official=${encodeURIComponent("eq:" + totals.join("|"))}`;
+  url += "&pagination:page=1&pagination:itemsPerPage=48";
+  const cards = await scannerFastJson(url, deadline);
+  return cards.filter((card) => (card.image || cardImageOverrides[card.id]) && numbers.includes(normalizeCollectorNumber(card.localId)));
 }
 
 function scannerImageRegion(source, start, end, contrast = 1.45) {
@@ -496,6 +983,9 @@ function scannerCardTextScore(
   const normalizedName = normalizeCardName(card.name);
   let score = 0;
   if (collectorNumbers.includes(localId)) score += 300;
+  if (scanDetails.collectorTotals?.length && card.set?.cardCount?.official) {
+    score += scanDetails.collectorTotals.includes(Number(card.set.cardCount.official)) ? 400 : -400;
+  }
   if (scanDetails.hp && Number(card.hp) === scanDetails.hp) score += 90;
   if (text.includes(normalizedName)) score += 60;
   normalizedName.split(" ").forEach((word) => {
@@ -658,6 +1148,8 @@ async function refineScannedMatches(
 ) {
   const sourceFingerprints = scannerSourceFingerprints(scannedImage);
   let completed = 0;
+  const total = matches.length + Math.min(36, matches.length);
+  onProgress(0, total);
   const visuallyRanked = await scannerMapConcurrent(
     matches,
     8,
@@ -670,7 +1162,7 @@ async function refineScannedMatches(
         );
       } catch {}
       completed++;
-      onProgress(completed, matches.length);
+      onProgress(completed, total);
       return {
         card,
         visualScore,
@@ -692,6 +1184,8 @@ async function refineScannedMatches(
     try {
       full = { ...card, ...await getJson(`${TCG_API}/cards/${card.id}`) };
     } catch {}
+    completed++;
+    onProgress(completed, total);
     return {
       card: {
         ...full,
@@ -758,32 +1252,34 @@ async function recognizeScannerImage(Tesseract, image, sharedWorker = null) {
     scannerImageRegion(image, 0.4, 0.83, 1.4),
     scannerImageRegion(image, 0.74, 1, 1.7),
   ];
-  let pass = 0;
   const ownsWorker = !sharedWorker;
-  const worker = sharedWorker || await Tesseract.createWorker("eng", 1, {
-    logger(message) {
-      if (message.status !== "recognizing text") return;
-      const progress = Math.round(
-        (pass + Math.min(1, message.progress || 0)) / regions.length * 100,
-      );
-      scannerProgress.innerHTML = `<span class="scanner-spinner"></span>${
-        t("scannerReading", { progress })
-      }`;
-    },
-  });
+  const logger = (message) => {
+    if (message.status === "recognizing text") scannerOcrProgress?.(message.progress || 0);
+  };
+  const worker = sharedWorker || await Tesseract.createWorker("eng", 1, { logger });
+  const readRegion = async (region, part = null) => {
+    const report = (progress) => {
+      const percentage = Math.round(Math.max(0, Math.min(1, progress)) * 100);
+      setScannerCurrentProgress(part === null ? "scannerRetryReading" : "scannerReadingSection",
+        { part, progress: percentage }, percentage);
+    };
+    scannerOcrProgress = report;
+    report(0);
+    const result = await worker.recognize(region);
+    report(1);
+    return result;
+  };
   try {
     await worker.setParameters({
       preserve_interword_spaces: "1",
       tessedit_pageseg_mode: "11",
     });
     const topTexts = [];
-    const top = await worker.recognize(regions[0]);
+    const top = await readRegion(regions[0], 1);
     topTexts.push(top.data.text || "");
-    pass = 1;
-    const caption = await worker.recognize(regions[1]);
-    pass = 2;
+    const caption = await readRegion(regions[1], 2);
     await worker.setParameters({ tessedit_pageseg_mode: "6" });
-    const attacks = await worker.recognize(regions[2]);
+    const attacks = await readRegion(regions[2], 3);
     // Perspective photos often leave the name line tilted even after the card
     // is cropped. If neither the name nor the printed Pokédex number survived,
     // retry the header at several angles and stop on the first useful result.
@@ -796,20 +1292,19 @@ async function recognizeScannerImage(Tesseract, image, sharedWorker = null) {
     ) {
       await worker.setParameters({ tessedit_pageseg_mode: "11" });
       for (const angle of [-8, 8, -14, 14]) {
-        const retry = await worker.recognize(
+        const retry = await readRegion(
           scannerRotateImage(regions[0], angle),
         );
         topTexts.push(retry.data.text || "");
         if (findScannedPokemon(topTexts.at(-1), 0.36)) break;
       }
     }
-    pass = 3;
     await worker.setParameters({
       preserve_interword_spaces: "1",
       tessedit_pageseg_mode: "11",
       tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/- ",
     });
-    const bottom = await worker.recognize(regions[3]);
+    const bottom = await readRegion(regions[3], 4);
     const bottomTexts = [bottom.data.text || ""];
     if (
       !findCollectorNumbers(
@@ -818,7 +1313,7 @@ async function recognizeScannerImage(Tesseract, image, sharedWorker = null) {
       ).length
     ) {
       const footer = scannerImageTile(image, 0, 0.78, 0.7, 1);
-      const focused = await worker.recognize(footer);
+      const focused = await readRegion(footer);
       bottomTexts.push(focused.data.text || "");
       if (
         !findCollectorNumbers(bottomTexts.join("\n"), true).length &&
@@ -829,7 +1324,7 @@ async function recognizeScannerImage(Tesseract, image, sharedWorker = null) {
           const source = angle
             ? scannerRotateImage(tightFooter, angle)
             : tightFooter;
-          const result = await worker.recognize(source);
+          const result = await readRegion(source);
           bottomTexts.push(result.data.text || "");
           if (findCollectorNumbers(bottomTexts.join("\n"), true).length) {
             break;
@@ -848,7 +1343,7 @@ async function recognizeScannerImage(Tesseract, image, sharedWorker = null) {
             image.scannerFullImage,
             ...bounds,
           );
-          const result = await worker.recognize(originalFooter);
+          const result = await readRegion(originalFooter);
           bottomTexts.push(result.data.text || "");
           if (findCollectorNumbers(bottomTexts.join("\n"), true).length) {
             break;
@@ -889,7 +1384,7 @@ async function recognizeScannerImage(Tesseract, image, sharedWorker = null) {
         );
         for (const angle of [0, -10, 10]) {
           const source = angle ? scannerRotateImage(tile, angle) : tile;
-          const result = await worker.recognize(source);
+          const result = await readRegion(source);
           fullText += `\n${result.data.text || ""}`;
           if (
             findScannedPokemon(fullText, 0) ||
@@ -910,12 +1405,15 @@ async function recognizeScannerImage(Tesseract, image, sharedWorker = null) {
       fullText,
     };
   } finally {
+    scannerOcrProgress = null;
     if (ownsWorker) await worker.terminate();
   }
 }
 
 async function scanCardPicture(file) {
-  if (!file?.type.startsWith("image/")) return;
+  if (scannerBatchBusy || !file?.type.startsWith("image/")) return;
+  setScannerBatchBusy(true);
+  document.querySelector("#scannerQualityWarning").textContent = "";
   scannerBinderSession = null;
   scannerPreview.parentElement.style.aspectRatio = "245/342";
   scannerDialog.setAttribute("aria-busy", "true");
@@ -943,6 +1441,8 @@ async function scanCardPicture(file) {
       prepareScannerImage(file),
     ]);
     scannerPreview.src = image.toDataURL("image/jpeg", 0.86);
+    document.querySelector("#scannerQualityWarning").textContent =
+      scannerQualityWarning(scannerBinderQuality(image));
     const recognized = await recognizeScannerImage(Tesseract, image);
     const rawText = [
       recognized.topText,
@@ -1034,6 +1534,7 @@ async function scanCardPicture(file) {
     console.error("Card scan failed", error);
     scannerProgress.textContent = t("scannerUnavailable");
   } finally {
+    setScannerBatchBusy(false);
     scannerDialog.removeAttribute("aria-busy");
     scannerDialog.querySelectorAll(".scanner-actions button").forEach(
       (button) => {
@@ -1041,6 +1542,94 @@ async function scanCardPicture(file) {
       },
     );
   }
+}
+
+
+
+function setScannerBatchBusy(busy) {
+  scannerBatchBusy = busy;
+  scannerDialog.querySelectorAll(".scanner-actions button, .scanner-batch-controls button, [data-remove-photo]").forEach((button) => {
+    button.disabled = busy;
+  });
+}
+
+function renderScannerPhotoQueue() {
+  const container = document.querySelector("#scannerPhotoBatch");
+  if (!container) return;
+  container.hidden = !scannerPhotoQueue.length;
+  document.querySelector("#scannerBatchSummary").textContent = t("scannerBatchSummary", {
+    photos: scannerPhotoQueue.length,
+    cards: scannerPhotoQueue.reduce((sum, photo) => sum + photo.layout.columns * photo.layout.rows, 0),
+  });
+  document.querySelector("#scannerPhotoQueue").innerHTML = scannerPhotoQueue.map((photo, index) =>
+    '<div class="scanner-photo-item"><img src="' + photo.previewUrl + '" alt=""><span>' +
+    escapeHtml(t("scannerCurrentPhoto", { photo: index + 1, photos: scannerPhotoQueue.length })) +
+    '</span><button type="button" data-remove-photo="' + photo.id + '">' +
+    escapeHtml(t("scannerPhotoRemove")) + '</button></div>'
+  ).join("");
+  setScannerBatchBusy(scannerBatchBusy);
+}
+
+function clearScannerPhotoQueue() {
+  scannerPhotoQueue.forEach((photo) => URL.revokeObjectURL(photo.previewUrl));
+  scannerPhotoQueue = [];
+  renderScannerPhotoQueue();
+}
+
+async function queueScannerPhotos(files) {
+  if (scannerBatchBusy) return;
+  const images = Array.from(files).filter((file) => file.type.startsWith("image/"));
+  if (!images.length) return;
+  if (scannerPhotoQueue.length + images.length > SCANNER_PHOTO_LIMIT) {
+    alert(t("scannerBatchLimit"));
+    return;
+  }
+  setScannerBatchBusy(true);
+  try {
+    for (const file of images) {
+      const bitmap = await createImageBitmap(file, { resizeWidth: 480 });
+      let previewUrl;
+      let previewData;
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 160;
+        canvas.height = Math.max(1, Math.round(bitmap.height * 160 / bitmap.width));
+        canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        previewData = canvas.toDataURL("image/jpeg", 0.75);
+        const previewFile = await scannerCanvasFile(canvas, "preview.jpg");
+        previewUrl = URL.createObjectURL(previewFile);
+      } finally { bitmap.close(); }
+      scannerPhotoQueue.push({ id: scannerNextPhotoId++, file,
+        layout: { columns: 1, rows: 1, id: "1x1" },
+        previewUrl, previewData });
+    }
+    scannerBinderSession = null;
+    scannerResults.innerHTML = "";
+  } catch (error) {
+    console.error("Could not queue photos", error);
+    alert(t("scannerUnavailable"));
+  } finally {
+    setScannerBatchBusy(false);
+    renderScannerPhotoQueue();
+  }
+}
+
+function scannerQualityWarning(quality) {
+  const warnings = [];
+  if (quality.glare > 0.12) warnings.push(t("scannerGlareWarning"));
+  if (quality.sharpness < 0.08) warnings.push(t("scannerBlurWarning"));
+  return warnings.join(" ");
+}
+
+function scannerGroupCanvas(bitmap) {
+  // Preserve the complete photo; both OCR engines read bounded text regions.
+  const maximum = scannerNativePlugin() ? 2600 : 2400;
+  const scale = Math.min(1, maximum / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  canvas.getContext("2d", { alpha: false }).drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  return canvas;
 }
 
 function scannerBinderLayoutFor(page, requested = "auto") {
@@ -1348,120 +1937,46 @@ function scannerCanvasFile(canvas, name) {
   );
 }
 
-async function scanBinderSlot(Tesseract, worker, crop, position) {
+async function scanBinderSlot(Tesseract, worker, crop, position, focused = false) {
+  setScannerCurrentProgress("scannerPreparing");
   const quality = scannerBinderQuality(crop);
-  const file = await scannerCanvasFile(crop, `binder-slot-${position}.jpg`);
-  const image = await prepareScannerImage(file);
-  const recognized = await recognizeScannerImage(Tesseract, image, worker);
-  const rawText = [
-    recognized.topText,
-    recognized.captionText,
-    recognized.attackText,
-    recognized.bottomText,
-    recognized.fullText,
-  ].join("\n");
-  let pokemon = findScannedPokedexPokemon(rawText) ||
-    findScannedPokemon(recognized.topText, 0.36) ||
-    findScannedPokemon(recognized.fullText || "", 0) ||
-    findScannedPokemon(recognized.bottomText);
-  let attackCards = [];
-  if (!pokemon) {
-    const recovered = await findCardsByScannedAttack(
-      `${recognized.captionText}\n${recognized.attackText}`,
-    );
-    pokemon = recovered.pokemon;
-    attackCards = recovered.cards;
-  }
-  if (!pokemon && !attackCards.length) {
+  const native = scannerNativePlugin();
+  // Preserve the entire photo on BOTH platforms; artwork-based cropping can
+  // remove the printed name or number before recognition even starts.
+  const image = prepareNativeScannerCanvas(crop);
+  try {
+    const recognized = native
+      ? await recognizeNativeScannerImage(native, image, focused)
+      : await recognizeBrowserScannerImage(worker, image, focused);
+    const result = await scannerFastCandidates(recognized);
+    if (scannerBatchCancelled) throw new Error("cancelled");
+    const exactNumber = Boolean(!result.numberFallback && !result.numberUncertain && !result.numberConflict &&
+      result.pokemon && result.candidates.length === 1 &&
+      result.numbers.includes(normalizeCollectorNumber(result.candidates[0].localId)));
+    const confidence = exactNumber ? 0.9 : result.candidates.length ? 0.5 : 0;
     return {
-      position,
-      quality,
-      crop: crop.toDataURL("image/jpeg", 0.78),
-      candidates: [],
-      selectedId: null,
-      include: false,
-      confidence: 0,
-      evidence: { name: null, collectorNumbers: [], hp: null },
+      position, quality, crop: image.toDataURL("image/jpeg", 0.78),
+      candidates: result.candidates, selectedId: result.candidates[0]?.id || null,
+      include: exactNumber && quality.glare < 0.15 && quality.sharpness > 0.2,
+      confidence, numberFallback: result.numberFallback,
+      numberConflict: result.numberConflict, numberUncertain: result.numberUncertain,
+      evidence: { name: result.pokemon?.slug || null, collectorNumbers: result.numbers,
+        collectorTotals: result.totals, hp: result.hp },
     };
-  }
-
-  let candidates = attackCards.filter((card) =>
-    card.image || cardImageOverrides[card.id]
-  );
-  if (pokemon) {
-    const printedName = tcgNameOverrides[pokemon.slug] ||
-      titleCase(pokemon.slug);
-    const cards = await getJson(
-      `${TCG_API}/cards?name=${encodeURIComponent(printedName)}`,
-    );
-    const exactName = new RegExp(
-      `(^|[^a-z0-9])${printedName.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`,
-      "i",
-    );
-    candidates = cards.filter((card) =>
-      (card.image || cardImageOverrides[card.id]) && exactName.test(card.name)
-    );
-  }
-  const collectorNumbers = findCollectorNumbers(rawText, true);
-  const scanDetails = {
-    hp: findScannedHp(recognized.topText),
-    topText: recognized.topText,
-    attackText: recognized.attackText,
-    bottomText: recognized.bottomText,
-  };
-  let matches = rankScannedCards(
-    candidates,
-    rawText,
-    collectorNumbers,
-    scanDetails,
-  );
-  if (matches.length > 1) {
-    matches = await refineScannedMatches(
-      matches,
-      rawText,
-      collectorNumbers,
-      image,
-      scanDetails,
-    );
-  }
-  matches = matches.slice(0, 5);
-  let confidence = collectorNumbers.length
-    ? 0.96
-    : pokemon && scanDetails.hp
-    ? 0.84
-    : pokemon
-    ? 0.7
-    : matches.length
-    ? 0.55
-    : 0;
-  confidence *= Math.max(0.58, 1 - quality.glare * 2.5);
-  confidence *= Math.max(0.7, 0.65 + quality.sharpness * 0.5);
-  confidence = Math.max(0, Math.min(0.99, confidence));
-  return {
-    position,
-    quality,
-    crop: crop.toDataURL("image/jpeg", 0.78),
-    candidates: matches,
-    selectedId: matches[0]?.id || null,
-    include: Boolean(matches.length && confidence >= 0.68),
-    confidence,
-    evidence: {
-      name: pokemon?.slug || null,
-      collectorNumbers,
-      hp: scanDetails.hp,
-    },
-  };
+  } finally { image.width = 1; image.height = 1; }
 }
 
 function scannerBinderJson(session) {
   return {
-    schema: "cardedex-binder-scan/v1",
+    schema: session.photos ? "cardedex-card-photo-batch/v1" : "cardedex-binder-scan/v1",
     source: "on-device",
-    layout: session.layout.id,
-    columns: session.layout.columns,
-    rows: session.layout.rows,
+    ...(session.photos ? { photos: session.photos } : {
+      layout: session.layout.id, columns: session.layout.columns, rows: session.layout.rows,
+    }),
     slots: session.slots.map((slot) => ({
       position: slot.position,
+      ...(slot.photo ? { photo: slot.photo, photoPosition: slot.photoPosition } : {}),
+      ...(slot.layoutUncertain ? { layoutUncertain: true } : {}),
       confidence: Number(slot.confidence.toFixed(3)),
       quality: {
         sharpness: Number(slot.quality.sharpness.toFixed(3)),
@@ -1480,33 +1995,76 @@ function scannerBinderJson(session) {
   };
 }
 
-function renderBinderReview() {
-  if (!scannerBinderSession) return;
+function scannerPrintingMatched(slot) {
+  const card = slot.candidates.find((candidate) => candidate.id === slot.selectedId);
+  return Boolean(card && slot.matchSource !== "manual" && !slot.manualDirty &&
+    !slot.numberFallback && !slot.numberConflict && !slot.numberUncertain && !slot.layoutUncertain &&
+    slot.confidence >= 0.9 && slot.candidates.length === 1 && slot.evidence?.name &&
+    slot.evidence.collectorNumbers?.includes(normalizeCollectorNumber(card.localId)));
+}
+
+function scannerReviewStatus(slot) {
+  if (!slot.candidates.length) return { key: "scannerPrintingUnknown", hint: "scannerNoReliableMatch", matched: false };
+  if (scannerPrintingMatched(slot)) return { key: "scannerPrintingMatched", hint: "scannerPrintingMatchedHint", matched: true };
+  if (slot.matchSource === "manual") return { key: "scannerPrintingSearch", hint: "scannerPrintingChooseHint", matched: false };
+  if (slot.numberConflict || slot.numberUncertain || slot.manualDirty || slot.layoutUncertain) {
+    return { key: "scannerPrintingCheck", hint: "scannerPrintingCheckHint", matched: false };
+  }
+  if (slot.numberFallback) return { key: "scannerPrintingNumber", hint: "scannerPrintingNumberHint", matched: false };
+  if (slot.evidence?.name && !slot.evidence.collectorNumbers?.length) {
+    return { key: "scannerPrintingName", hint: "scannerPrintingNameHint", matched: false };
+  }
+  return { key: "scannerPrintingChoose", hint: "scannerPrintingChooseHint", matched: false };
+}
+
+function scannerPrintingStatusHtml(slot) {
+  const status = scannerReviewStatus(slot);
+  return `<div class="scanner-printing-status ${status.matched ? "matched" : "review"}"><strong>${escapeHtml(t(status.key))}</strong><small>${escapeHtml(t(status.hint))}</small></div>`;
+}
+
+function updateScannerReviewSummary() {
   const found = scannerBinderSession.slots.filter((slot) =>
     slot.candidates.length
   ).length;
-  scannerProgress.textContent = t("binderFound", {
+  const matched = scannerBinderSession.slots.filter(scannerPrintingMatched).length;
+  scannerProgress.textContent = t(scannerBinderSession.photos ? "scannerBatchReviewInfo" : "binderFound", {
+    photos: scannerBinderSession.photos?.length,
     found,
     total: scannerBinderSession.slots.length,
+    matched,
+    review: scannerBinderSession.slots.length - matched,
   });
+}
+
+function renderBinderReview() {
+  if (!scannerBinderSession) return;
+  document.querySelector("#scannerCurrentPhoto").hidden = true;
+  document.querySelector("#scannerCurrentProgress").hidden = true;
+  updateScannerReviewSummary();
   scannerResults.innerHTML = `<div class="binder-review-header"><h3>${
-    t("binderReview")
-  }</h3><span>${escapeHtml(scannerBinderSession.layout.id)}</span></div>
+    t("scannerBatchReview")
+  }</h3><span></span></div>
     <div class="binder-review-grid">${scannerBinderSession.slots.map((slot) => {
-      const confidence = Math.round(slot.confidence * 100);
+      const statusHtml = scannerPrintingStatusHtml(slot);
       if (!slot.candidates.length) {
         return `<article class="binder-slot low" data-binder-position="${slot.position}">
-          <div class="binder-slot-image"><img src="${slot.crop}" alt=""><span>#${slot.position}</span></div>
-          <div class="binder-slot-empty">${escapeHtml(t("binderNoMatch"))}</div>
+          <div class="binder-slot-image"><img src="${slot.crop}" alt=""><span>${escapeHtml(slot.photo ? t("scannerPhotoLabel", { photo: slot.photo, layout: "#" + slot.photoPosition }) : "#" + slot.position)}</span></div>
+          <div class="binder-slot-empty">${statusHtml}${scannerManualControl(slot.position)}${scannerRecheckControl(slot)}</div>
         </article>`;
       }
       return `<article class="binder-slot ${slot.confidence < 0.68 ? "low" : ""}" data-binder-position="${slot.position}">
-        <div class="binder-slot-image"><img src="${slot.crop}" alt=""><span>#${slot.position}</span></div>
+        <div class="binder-slot-image"><img src="${slot.crop}" alt=""><span>${escapeHtml(slot.photo ? t("scannerPhotoLabel", { photo: slot.photo, layout: "#" + slot.photoPosition }) : "#" + slot.position)}</span></div>
         <div class="binder-slot-copy">
-          <select data-binder-choice="${slot.position}" aria-label="Card match">${slot.candidates.map((card) =>
-            `<option value="${escapeHtml(card.id)}" ${card.id === slot.selectedId ? "selected" : ""}>${escapeHtml(card.name)} · ${escapeHtml(card.set?.name || card.setCode)} #${escapeHtml(card.localId)}</option>`
-          ).join("")}</select>
-          <div class="binder-slot-meta"><span>${confidence}%</span><label><input type="checkbox" data-binder-include="${slot.position}" ${slot.include ? "checked" : ""}> ${escapeHtml(t("binderInclude"))}</label></div>
+          ${statusHtml}
+          <small class="binder-slot-warning">${escapeHtml((slot.layoutUncertain ? t("scannerLayoutUnclearHint") + " " : "") + scannerQualityWarning(slot.quality))}</small>
+          ${slot.numberFallback ? `<small class="binder-slot-warning">${escapeHtml(t("scannerNumberFallback"))}</small>` : ""}
+          ${slot.numberConflict || slot.numberUncertain ? `<small class="binder-slot-warning">${escapeHtml(t(slot.numberConflict ? "scannerNumberConflict" : "scannerNumberUncertain"))}</small>` : ""}
+          <div class="scanner-candidate-grid" role="group" aria-label="${escapeHtml(t("scannerMatches"))}">${slot.candidates.map((card) =>
+            `<button type="button" class="scanner-candidate" data-binder-candidate="${slot.position}" data-card-id="${escapeHtml(card.id)}" aria-pressed="${card.id === slot.selectedId}"><img src="${escapeHtml(cardImageUrl(card, "low"))}" alt="${escapeHtml(card.name)}" loading="lazy"><strong>${escapeHtml(card.name)}</strong><small>${escapeHtml(card.set?.name || card.setCode || setCode(card.id))} · #${escapeHtml(card.localId)}</small></button>`
+          ).join("")}</div>
+          <div class="binder-slot-meta"><label><input type="checkbox" data-binder-include="${slot.position}" ${slot.include ? "checked" : ""}> ${escapeHtml(t("binderInclude"))}</label></div>
+          ${scannerManualControl(slot.position)}
+          ${scannerRecheckControl(slot)}
         </div>
       </article>`;
     }).join("")}</div>
@@ -1518,87 +2076,326 @@ function renderBinderReview() {
   scannerBinderSession.json = scannerBinderJson(scannerBinderSession);
 }
 
-async function scanBinderPage(file) {
-  if (!file?.type.startsWith("image/")) return;
-  scannerDialog.setAttribute("aria-busy", "true");
-  scannerDialog.querySelectorAll(".scanner-actions button").forEach(
-    (button) => {
-      button.disabled = true;
-    },
+function scannerRecheckControl(slot) {
+  const canScan = scannerBinderSession?.sourcePhotos?.[slot.photo - 1];
+  return `<div class="scanner-recheck"><button type="button" data-scanner-recheck="${slot.position}" ${!canScan || scannerBinderSession.applied ? "disabled" : ""}>${escapeHtml(t("scannerScanAgain"))}</button><small role="status">${escapeHtml(slot.recheckMessage ? t(slot.recheckMessage) : "")}</small></div>`;
+}
+
+function chooseScannerCandidate(position, id) {
+  if (!scannerBinderSession || scannerBinderSession.applied || scannerReviewBusy || scannerBatchBusy) return;
+  const slot = scannerBinderSession.slots.find((slot) => slot.position === position);
+  if (!slot?.candidates.some((card) => card.id === id)) return;
+  if (slot.selectedId !== id) slot.include = false;
+  slot.selectedId = id;
+  scannerResults.querySelectorAll(`[data-binder-candidate="${position}"]`).forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.cardId === id));
+  });
+  const include = scannerResults.querySelector(`[data-binder-include="${position}"]`);
+  if (include) include.checked = slot.include;
+  const add = document.querySelector("#scannerBinderAdd");
+  if (add) add.disabled = !scannerBinderSession.slots.some((slot) => slot.include && slot.selectedId);
+  scannerBinderSession.json = scannerBinderJson(scannerBinderSession);
+}
+
+function mergeScannerRecheck(slot, fresh) {
+  const oldSelected = slot.selectedId;
+  const numberAgrees = slot.evidence.name && slot.evidence.name === fresh.evidence.name &&
+    slot.evidence.collectorNumbers?.some((number) => fresh.evidence.collectorNumbers?.includes(number));
+  const agreed = Boolean(oldSelected && numberAgrees && fresh.candidates.some((card) => card.id === oldSelected));
+  const combined = [...new Map([...fresh.candidates, ...slot.candidates].map((card) => [card.id, card])).values()];
+  const previous = combined.find((card) => card.id === oldSelected);
+  slot.candidates = combined.slice(0, 8);
+  if (previous && !slot.candidates.some((card) => card.id === oldSelected)) slot.candidates[7] = previous;
+  slot.selectedId = previous ? oldSelected : fresh.selectedId;
+  slot.include = false; // A recheck always asks the user to confirm again.
+  slot.matchSource = "scan";
+  slot.recheckMessage = !fresh.candidates.length ? "scannerRecheckUnreadable" : agreed ? "scannerRecheckAgreed" : "scannerRecheckChanged";
+  slot.numberFallback = fresh.numberFallback;
+  slot.numberConflict = fresh.numberConflict;
+  slot.numberUncertain = fresh.numberUncertain;
+  if (agreed) slot.confidence = Math.max(slot.confidence, fresh.confidence);
+  else slot.confidence = Math.min(0.5, fresh.confidence);
+  if (fresh.candidates.length) slot.evidence = fresh.evidence;
+}
+
+async function recheckScannerPhoto(button) {
+  const session = scannerBinderSession;
+  const slot = session?.slots.find((slot) => slot.position === Number(button.dataset.scannerRecheck));
+  const source = session?.sourcePhotos?.[slot?.photo - 1];
+  if (!slot || !source || session.applied || scannerBatchBusy || scannerReviewBusy) return;
+  scannerReviewBusy = true;
+  setScannerBatchBusy(true);
+  scannerBatchCancelled = false;
+  const scrollTop = scannerDialog.scrollTop;
+  scannerResults.querySelectorAll("button, input").forEach((control) => { control.disabled = true; });
+  scannerWorkspace.hidden = false;
+  const currentPhoto = document.querySelector("#scannerCurrentPhoto");
+  currentPhoto.hidden = false;
+  currentPhoto.textContent = t("scannerRecheckingPhoto", { photo: slot.photo });
+  scannerPreview.src = slot.crop;
+  let page, worker;
+  try {
+    const Tesseract = scannerNativePlugin() ? null : await loadScannerLibrary();
+    if (scannerBatchCancelled) throw new Error("cancelled");
+    worker = Tesseract ? await acquireBrowserScannerWorker(Tesseract) : null;
+    scannerActiveBatchWorker = worker;
+    const bitmap = await createImageBitmap(source.file);
+    try { page = scannerGroupCanvas(bitmap); } finally { bitmap.close(); }
+    const fresh = await scanBinderSlot(Tesseract, worker, page, slot.position, true);
+    if (scannerBatchCancelled || scannerBinderSession !== session || session.applied) return;
+    mergeScannerRecheck(slot, fresh);
+  } catch (error) {
+    if (error.code === "SCAN_TIMEOUT") await disposeBrowserScannerWorker();
+    if (!scannerBatchCancelled && scannerBinderSession === session) slot.recheckMessage = "scannerRecheckFailed";
+  } finally {
+    scannerOcrProgress = null;
+    scannerActiveBatchWorker = null;
+    if (scannerBatchCancelled) await disposeBrowserScannerWorker();
+    else releaseBrowserScannerWorker(worker);
+    if (page) { page.width = 1; page.height = 1; }
+    scannerReviewBusy = false;
+    setScannerBatchBusy(false);
+    if (scannerBinderSession === session) {
+      renderBinderReview();
+      scannerDialog.scrollTop = scrollTop;
+    }
+  }
+}
+
+function scannerManualControl(position) {
+  const slot = scannerBinderSession?.slots.find((slot) => slot.position === position);
+  const evidence = slot?.evidence;
+  const fallbackName = slot?.numberFallback ? slot.candidates.find((card) => card.id === slot.selectedId)?.name : null;
+  const name = slot?.manualName ?? evidence?.name?.replace(/-/g, " ") ?? fallbackName ?? "";
+  const number = slot?.manualNumber ?? (evidence?.collectorNumbers?.length
+    ? [evidence.collectorNumbers[0], evidence.collectorTotals?.[0]].filter((value) => value !== undefined && value !== null && value !== "").join("/") : "");
+  const message = slot?.manualMessageKey ? t(slot.manualMessageKey, slot.manualMessageValues || {}) : "";
+  return `<form class="scanner-manual" data-scanner-form="${position}"><div class="scanner-manual-fields"><label>${escapeHtml(t("scannerManualName"))}<input type="text" maxlength="100" data-scanner-name="${position}" value="${escapeHtml(name)}" placeholder="Pikachu" autocomplete="off" spellcheck="false" enterkeyhint="search"></label><label>${escapeHtml(t("scannerManualNumber"))}<input type="text" maxlength="24" data-scanner-number="${position}" value="${escapeHtml(number)}" placeholder="025/165" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="search" aria-describedby="scannerNumberHint-${position}"></label></div><small id="scannerNumberHint-${position}">${escapeHtml(t("scannerManualNumberHint"))}</small><button type="submit" data-scanner-search="${position}">${escapeHtml(t("scannerManualSearch"))}</button><small data-scanner-search-status="${position}" role="status">${escapeHtml(message)}</small></form>`;
+}
+
+function updateScannerManualInput(input) {
+  if (!scannerBinderSession || scannerBinderSession.applied || scannerReviewBusy || scannerBatchBusy) return;
+  const position = Number(input.dataset.scannerName || input.dataset.scannerNumber);
+  const slot = scannerBinderSession.slots.find((item) => item.position === position);
+  if (!slot) return;
+  if (input.dataset.scannerName) slot.manualName = input.value.slice(0, 100);
+  else slot.manualNumber = input.value.slice(0, 24);
+  slot.manualDirty = true;
+  slot.manualMessageKey = "scannerManualPending";
+  slot.include = false;
+  const include = scannerResults.querySelector(`[data-binder-include="${position}"]`);
+  if (include) include.checked = false;
+  const status = scannerResults.querySelector(`[data-scanner-search-status="${position}"]`);
+  if (status) status.textContent = t("scannerManualPending");
+  const add = document.querySelector("#scannerBinderAdd");
+  if (add) add.disabled = !scannerBinderSession.slots.some((item) => item.include && item.selectedId);
+  const printingStatus = scannerResults.querySelector(`[data-binder-position="${position}"] .scanner-printing-status`);
+  if (printingStatus) printingStatus.outerHTML = scannerPrintingStatusHtml(slot);
+  updateScannerReviewSummary();
+  scannerBinderSession.json = scannerBinderJson(scannerBinderSession);
+}
+
+function scannerManualNumbers(text) {
+  // Unlike OCR, typed input must not turn a name suffix ("Mew ex 025")
+  // into a fictitious collector prefix such as EX25.
+  const trailing = text.match(/\b([A-Z]{0,5}\d{1,4})(?:[ \t]*[\/|][ \t]*[A-Z]{0,5}\d{1,4})?\s*$/i);
+  return trailing ? [normalizeCollectorNumber(trailing[1])] : [];
+}
+
+function scannerManualQuery(text, numberText = "") {
+  const typedNumber = String(numberText).trim().slice(0, 24);
+  if (typedNumber && !/^[A-Z]{0,5}\d{1,4}(?:\s*[\/|]\s*[A-Z]{0,5}\d{1,4})?$/i.test(typedNumber)) {
+    throw Object.assign(new Error("Enter a collector number"), { code: "NUMBER_INVALID" });
+  }
+  const value = [String(text).trim().slice(0, 100), typedNumber].filter(Boolean).join(" ");
+  const numbers = scannerManualNumbers(value);
+  const name = value.replace(/\b[A-Z]{0,5}\d{1,4}(?:[ \t]*[\/|][ \t]*[A-Z]{0,5}[ \t-]*\d{1,4})?\s*$/i, "").trim();
+  if ((name.match(/\p{L}/gu) || []).length < 2) {
+    throw Object.assign(new Error("Enter a card name"), { code: "NAME_REQUIRED" });
+  }
+  const fraction = value.match(/\b[A-Z]{0,5}\d{1,4}\s*[\/|]\s*(\d{1,4})\s*$/i);
+  const totals = fraction && Number(fraction[1]) > 0 ? [Number(fraction[1])] : [];
+  return { name, numbers, totals };
+}
+
+async function scannerManualCandidates(query) {
+  const deadline = Date.now() + 8000;
+  // Typed searches go straight to the catalogue, even before Pokédex aliases load.
+  // Explicit Search also refreshes the name list instead of replaying scan cache.
+  let url = `${TCG_API}/cards?name=${encodeURIComponent(query.name)}`;
+  if (query.totals?.length) url += `&set.cardCount.official=${encodeURIComponent("eq:" + query.totals[0])}`;
+  const cards = await scannerFastJson(url, deadline, { fresh: true });
+  const expected = normalizeCardName(query.name);
+  const filtered = cards.filter((card) => (card.image || cardImageOverrides[card.id]) &&
+    normalizeCardName(card.name).includes(expected) &&
+    (!query.numbers.length || query.numbers.includes(normalizeCollectorNumber(card.localId)))
   );
+  const shortlist = rankScannedCards(filtered, query.name, query.numbers).slice(0, 6);
+  const matches = await scannerMapConcurrent(shortlist, 3, async (card) => {
+    try { return { ...card, ...await scannerFastJson(`${TCG_API}/cards/${card.id}`, deadline) }; }
+    catch { return card; }
+  });
+  return rankScannedCards(matches, query.name, query.numbers).slice(0, 5);
+}
+
+async function searchScannerManual(button) {
+  const session = scannerBinderSession;
+  if (!session || session.applied || scannerBatchBusy || scannerReviewBusy) return;
+  const position = Number(button.dataset.scannerSearch);
+  const input = scannerResults.querySelector(`[data-scanner-name="${position}"]`);
+  const numberInput = scannerResults.querySelector(`[data-scanner-number="${position}"]`);
+  const status = scannerResults.querySelector(`[data-scanner-search-status="${position}"]`);
+  const slot = session.slots.find((slot) => slot.position === position);
+  if (!slot || !input || !numberInput || !status) return;
+  const text = input.value.trim().slice(0, 100);
+  const numberText = numberInput.value.trim().slice(0, 24);
+  updateScannerManualInput({ dataset: { scannerName: String(position) }, value: text });
+  updateScannerManualInput({ dataset: { scannerNumber: String(position) }, value: numberText });
+  slot.manualName = text;
+  slot.manualNumber = numberText;
+  slot.manualText = [text, numberText].filter(Boolean).join(" ");
+  const show = (key, values = {}) => {
+    slot.manualMessageKey = key;
+    slot.manualMessageValues = values;
+    status.textContent = t(key, values);
+  };
+  let query;
+  try { query = scannerManualQuery(text, numberText); }
+  catch (error) { show(error.code === "NUMBER_INVALID" ? "scannerManualNumberInvalid" : "scannerManualNameRequired"); return; }
+  const scrollTop = scannerDialog.scrollTop;
+  const focusedField = document.activeElement === numberInput ? "number" : document.activeElement === input ? "name" : null;
+  scannerReviewBusy = true;
+  scannerBatchCancelled = false;
+  setScannerBatchBusy(true);
+  button.disabled = true;
+  show("scannerSearching");
+  scannerResults.setAttribute("aria-busy", "true");
+  scannerResults.inert = true;
+  try {
+    const candidates = await scannerManualCandidates(query);
+    if (scannerBatchCancelled || scannerBinderSession !== session || session.applied) return;
+    if (!candidates.length) { show("scannerManualNoResults"); return; }
+    const unchanged = slot.candidates.map((card) => card.id).join("\n") === candidates.map((card) => card.id).join("\n");
+    slot.candidates = candidates;
+    slot.selectedId = candidates[0].id;
+    slot.include = false;
+    slot.confidence = 0.5;
+    slot.matchSource = "manual";
+    slot.manualDirty = false;
+    slot.numberFallback = false;
+    slot.numberConflict = false;
+    slot.numberUncertain = false;
+    slot.evidence = { name: query.name, collectorNumbers: query.numbers, collectorTotals: query.totals, hp: null };
+    show(unchanged ? "scannerManualSameResults" : "scannerManualFound", { count: candidates.length });
+    renderBinderReview();
+  } catch (error) {
+    if (!scannerBatchCancelled && scannerBinderSession === session) show(error.name === "AbortError" ? "scannerManualTimeout" : "scannerManualFailed");
+  }
+  finally {
+    scannerReviewBusy = false;
+    setScannerBatchBusy(false);
+    button.disabled = false;
+    scannerResults.inert = false;
+    scannerResults.removeAttribute("aria-busy");
+    scannerDialog.scrollTop = scrollTop;
+    if (focusedField && scannerBinderSession === session) {
+      scannerResults.querySelector(`[data-scanner-${focusedField}="${position}"]`)?.focus?.({ preventScroll: true });
+    }
+    document.querySelector("#scannerCurrentProgress").hidden = true;
+  }
+}
+
+async function scanQueuedCardPhotos() {
+  if (scannerBatchBusy || scannerReviewBusy || !scannerPhotoQueue.length) return;
+  const photos = [...scannerPhotoQueue];
+  setScannerBatchBusy(true);
+  scannerBatchRunning = true;
+  scannerBatchCancelled = false;
+  scannerDialog.setAttribute("aria-busy", "true");
   scannerMatches = [];
   scannerBinderSession = null;
   scannerResults.innerHTML = "";
   scannerWorkspace.hidden = false;
-  scannerProgress.innerHTML = `<span class="scanner-spinner"></span>${
-    t("binderPreparing")
-  }`;
+  document.querySelector("#scannerQualityWarning").textContent = "";
+  requestAnimationFrame(() => scannerWorkspace.scrollIntoView({ block: "start", behavior: "smooth" }));
+  const currentPhoto = document.querySelector("#scannerCurrentPhoto");
+  const slots = [];
+  let failedPhotos = 0;
+  let worker;
+  const showPhoto = (index) => {
+    currentPhoto.hidden = false;
+    currentPhoto.textContent = t("scannerCurrentPhoto", { photo: index + 1, photos: photos.length });
+    scannerPreview.src = photos[index].previewData;
+    setScannerCurrentProgress("scannerPreparing");
+  };
   try {
-    const [Tesseract, bitmap] = await Promise.all([
-      loadScannerLibrary(),
-      createImageBitmap(file),
-    ]);
-    const page = scannerBinderPageCanvas(bitmap);
-    bitmap.close();
-    const layout = scannerBinderLayoutFor(page, scannerBinderLayout.value);
-    scannerPreview.src = page.toDataURL("image/jpeg", 0.8);
-    scannerPreview.parentElement.style.aspectRatio =
-      `${page.width}/${page.height}`;
-    const crops = [];
-    for (let row = 0; row < layout.rows; row++) {
-      for (let column = 0; column < layout.columns; column++) {
-        crops.push(scannerBinderCrop(page, layout, row, column));
-      }
+    showPhoto(0);
+    setScannerCurrentProgress("binderPreparing");
+    const Tesseract = scannerNativePlugin() ? null : await loadScannerLibrary();
+    if (scannerBatchCancelled) throw new Error("cancelled");
+    worker = Tesseract ? await acquireBrowserScannerWorker(Tesseract) : null;
+    scannerActiveBatchWorker = worker;
+    for (let photoIndex = 0; photoIndex < photos.length; photoIndex++) {
+      if (scannerBatchCancelled) throw new Error("cancelled");
+      const photo = photos[photoIndex];
+      showPhoto(photoIndex);
+      let page;
+      try {
+        const bitmap = await createImageBitmap(photo.file);
+        try { page = scannerGroupCanvas(bitmap); }
+        finally { bitmap.close(); }
+        if (scannerBatchCancelled) throw new Error("cancelled");
+        scannerPreview.src = page.toDataURL("image/jpeg", 0.75);
+        scannerPreview.parentElement.style.aspectRatio = page.width + "/" + page.height;
+        const slot = await scanBinderSlot(Tesseract, worker, page, slots.length + 1);
+        if (scannerBatchCancelled) throw new Error("cancelled");
+        slot.photo = photoIndex + 1;
+        slot.photoPosition = 1;
+        slots.push(slot);
+        setScannerCurrentProgress("scannerPhotoComplete", {}, 100);
+      } catch (error) {
+        if (scannerBatchCancelled) throw error;
+        if (error.code === "SCAN_TIMEOUT" || error.code === "OCR_BUSY") throw error;
+        console.warn("Photo could not be scanned", photoIndex + 1, error);
+        failedPhotos++;
+        slots.push({
+          position: slots.length + 1, photo: photoIndex + 1, photoPosition: 1,
+          quality: { glare: 0, sharpness: 0 }, crop: photo.previewData,
+          candidates: [], selectedId: null, include: false, confidence: 0,
+          evidence: { name: null, collectorNumbers: [], hp: null },
+        });
+      } finally { if (page) { page.width = 1; page.height = 1; } }
     }
-    const worker = await Tesseract.createWorker("eng", 1);
-    const slots = [];
-    try {
-      for (let index = 0; index < crops.length; index++) {
-        scannerProgress.innerHTML = `<span class="scanner-spinner"></span>${
-          t("binderScanning", { done: index + 1, total: crops.length })
-        }`;
-        try {
-          slots.push(
-            await scanBinderSlot(Tesseract, worker, crops[index], index + 1),
-          );
-        } catch (error) {
-          console.warn("Binder slot scan failed", index + 1, error);
-          slots.push({
-            position: index + 1,
-            quality: scannerBinderQuality(crops[index]),
-            crop: crops[index].toDataURL("image/jpeg", 0.78),
-            candidates: [],
-            selectedId: null,
-            include: false,
-            confidence: 0,
-            evidence: { name: null, collectorNumbers: [], hp: null },
-          });
-        }
-      }
-    } finally {
-      await worker.terminate();
-    }
+    if (scannerBatchCancelled) throw new Error("cancelled");
     scannerBinderSession = {
-      layout,
-      slots,
-      createdAt: new Date().toISOString(),
+      layout: { id: "photo-batch", columns: 1, rows: 1 },
+      photos: photos.map((photo, index) => ({ photo: index + 1, layout: photo.layout })),
+      sourcePhotos: photos,
+      slots, applied: false, createdAt: new Date().toISOString(),
     };
     renderBinderReview();
+    if (failedPhotos) {
+      document.querySelector("#scannerQualityWarning").textContent = t("scannerBatchFailed", { count: failedPhotos });
+    }
+    clearScannerPhotoQueue();
   } catch (error) {
-    console.error("Binder scan failed", error);
-    scannerProgress.textContent = t("scannerUnavailable");
+    if (error.code === "SCAN_TIMEOUT") await disposeBrowserScannerWorker();
+    if (!scannerBatchCancelled) console.error("Photo batch scan failed", error);
+    scannerProgress.textContent = t(scannerBatchCancelled ? "scannerBatchCancelled" : error.code === "SCAN_TIMEOUT" || error.code === "OCR_BUSY" ? "scannerTimedOut" : "scannerUnavailable");
+    document.querySelector("#scannerCurrentProgress").hidden = true;
   } finally {
+    scannerOcrProgress = null;
+    if (scannerBatchCancelled) await disposeBrowserScannerWorker();
+    else releaseBrowserScannerWorker(worker);
+    scannerActiveBatchWorker = null;
+    scannerBatchRunning = false;
     scannerDialog.removeAttribute("aria-busy");
-    scannerDialog.querySelectorAll(".scanner-actions button").forEach(
-      (button) => {
-        button.disabled = false;
-      },
-    );
+    setScannerBatchBusy(false);
   }
 }
 
 function addBinderSelection() {
-  if (!scannerBinderSession) return;
+  if (!scannerBinderSession || scannerBinderSession.applied || scannerReviewBusy) return;
   const quantities = new Map();
   scannerBinderSession.slots.filter((slot) =>
     slot.include && slot.selectedId
@@ -1616,6 +2413,10 @@ function addBinderSelection() {
     state.cardCounts[id] = existing + quantity;
     hydrateOwnedCard(id);
   }
+  if (!quantities.size) return;
+  scannerBinderSession.applied = true;
+  scannerBinderSession.sourcePhotos = null;
+  scannerResults.querySelectorAll("button, select, input").forEach((control) => { control.disabled = true; });
   saveUser();
   renderCards();
   scannerProgress.textContent = t("binderAdded", {
@@ -1636,26 +2437,36 @@ document.querySelector("#scannerClose").addEventListener(
 );
 document.querySelector("#scannerCamera").addEventListener(
   "click",
-  () => resetScannerInput(scannerCameraInput),
+  openScannerCamera,
 );
+document.querySelector("#scannerCameraDone").addEventListener("click", finishScannerCamera);
+scannerCameraCapture.addEventListener("click", captureScannerPhoto);
+scannerCameraDialog.addEventListener("close", stopScannerCamera);
+scannerCameraDialog.addEventListener("cancel", stopScannerCamera);
+window.addEventListener?.("pagehide", finishScannerCamera);
+document.addEventListener?.("visibilitychange", () => {
+  if (document.hidden) finishScannerCamera();
+});
 document.querySelector("#scannerGallery").addEventListener(
   "click",
   () => resetScannerInput(scannerGalleryInput),
 );
-document.querySelector("#scannerBinderCamera").addEventListener(
-  "click",
-  () => resetScannerInput(scannerBinderCameraInput),
-);
-document.querySelector("#scannerBinderGallery").addEventListener(
-  "click",
-  () => resetScannerInput(scannerBinderGalleryInput),
-);
 [scannerCameraInput, scannerGalleryInput].forEach((input) =>
-  input.addEventListener("change", () => scanCardPicture(input.files[0]))
+  input.addEventListener("change", () => queueScannerPhotos(input.files))
 );
-[scannerBinderCameraInput, scannerBinderGalleryInput].forEach((input) =>
-  input.addEventListener("change", () => scanBinderPage(input.files[0]))
-);
+document.querySelector("#scannerBatchStart").addEventListener("click", scanQueuedCardPhotos);
+document.querySelector("#scannerBatchClear").addEventListener("click", () => {
+  if (!scannerBatchBusy) clearScannerPhotoQueue();
+});
+document.querySelector("#scannerPhotoQueue").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-photo]");
+  if (!button || scannerBatchBusy) return;
+  const photo = scannerPhotoQueue.find((item) => item.id === Number(button.dataset.removePhoto));
+  if (!photo) return;
+  URL.revokeObjectURL(photo.previewUrl);
+  scannerPhotoQueue = scannerPhotoQueue.filter((item) => item !== photo);
+  renderScannerPhotoQueue();
+});
 scannerResults.addEventListener("change", (event) => {
   if (!scannerBinderSession) return;
   const choice = event.target.closest("[data-binder-choice]");
@@ -1678,6 +2489,15 @@ scannerResults.addEventListener("change", (event) => {
   }
 });
 scannerResults.addEventListener("click", (event) => {
+  const recheck = event.target.closest("[data-scanner-recheck]");
+  if (recheck) { recheckScannerPhoto(recheck); return; }
+  const candidate = event.target.closest("[data-binder-candidate]");
+  if (candidate) {
+    chooseScannerCandidate(Number(candidate.dataset.binderCandidate), candidate.dataset.cardId);
+    return;
+  }
+  const manualSearch = event.target.closest("[data-scanner-search]");
+  if (manualSearch) { event.preventDefault(); searchScannerManual(manualSearch); return; }
   if (event.target.closest("#scannerBinderAdd")) {
     addBinderSelection();
     return;
@@ -1691,6 +2511,31 @@ scannerResults.addEventListener("click", (event) => {
   scannerDialog.close();
   openCard(card);
 });
+scannerResults.addEventListener("submit", (event) => {
+  const form = event.target.closest("[data-scanner-form]");
+  if (!form) return;
+  event.preventDefault();
+  searchScannerManual(form.querySelector("[data-scanner-search]"));
+});
+scannerResults.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-scanner-name], [data-scanner-number]");
+  if (input) updateScannerManualInput(input);
+});
+scannerResults.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.isComposing) return;
+  const input = event.target.closest("[data-scanner-name], [data-scanner-number]");
+  if (!input) return;
+  event.preventDefault();
+  if (!event.repeat) searchScannerManual(input.closest("[data-scanner-form]").querySelector("[data-scanner-search]"));
+});
 scannerDialog.addEventListener("click", (event) => {
   if (event.target === scannerDialog) scannerDialog.close();
 });
+scannerDialog.addEventListener("close", () => {
+  finishScannerCamera();
+  scannerLookupControllers.forEach((controller) => controller.abort());
+  void disposeBrowserScannerWorker();
+  if (!scannerBatchRunning && !scannerReviewBusy) return;
+  scannerBatchCancelled = true;
+});
+window.addEventListener?.("pagehide", () => { void disposeBrowserScannerWorker(); });

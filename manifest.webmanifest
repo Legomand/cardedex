@@ -1,7 +1,7 @@
 {
-  "name": "Cardedex — Pokémon Card Companion",
-  "short_name": "Cardedex",
-  "description": "Browse the Pokédex, explore Pokémon cards, and manage a private collection.",
+  "name": "PokéCardCollector",
+  "short_name": "PokéCardCollector",
+  "description": "Your Pokémon card collection",
   "id": "./",
   "start_url": "./",
   "scope": "./",

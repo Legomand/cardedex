@@ -7,8 +7,8 @@ function applySettings() {
     state.settings.language === "en" ? "DA" : "EN";
   document.documentElement.lang = state.settings.language;
   document.title = state.settings.language === "da"
-    ? "Cardédex — Pokémon og kort"
-    : "Cardédex — Pokémon & cards";
+    ? "PokéCardCollector — Din Pokémon-kortsamling"
+    : "PokéCardCollector — Your Pokémon card collection";
   const setText = (selector, key) => {
     const node = document.querySelector(selector);
     if (node) node.textContent = t(key);
@@ -112,6 +112,7 @@ function applySettings() {
   setLabel("#collectionClose", "closeCollection");
   if (typeof applyScannerLanguage === "function") applyScannerLanguage();
   if (typeof applyTradeLanguage === "function") applyTradeLanguage();
+  if (typeof applyNearbyLanguage === "function") applyNearbyLanguage();
   const pokedexOption = mainOrderFilter.querySelector('[value="pokedex"]');
   if (pokedexOption) pokedexOption.textContent = t("pokedexNumber");
   if (mainSeriesFilter.options[0]) {
@@ -472,13 +473,13 @@ cardDialog.addEventListener("click", (e) => {
   const status = e.target.closest("[data-detail-status]");
   if (status) {
     setCardStatus(cardId, status.dataset.detailStatus);
-    openCard(card);
+    openCard(card, true);
     return;
   }
   const quantity = e.target.closest("[data-count]");
   if (quantity) {
     adjustCardCount(cardId, quantity.dataset.count);
-    openCard(card);
+    openCard(card, true);
   }
 });
 cardDialog.addEventListener("change", (event) => {
@@ -495,7 +496,7 @@ cardDialog.addEventListener("change", (event) => {
       event.target.checked,
     );
   } else return;
-  if (card) openCard(card);
+  if (card) openCard(card, true);
 });
 document.querySelector("#collectionOpen").addEventListener(
   "click",
@@ -688,6 +689,7 @@ if (state.settings.valuationCurrency === "dkk") {
 }
 
 if (
+  !document.querySelector('meta[name="cardedex-bundled"]') &&
   "serviceWorker" in navigator &&
   (location.protocol === "https:" || location.hostname === "localhost" ||
     location.hostname === "127.0.0.1")

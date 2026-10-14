@@ -3,28 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Browse every Pokémon and discover its trading cards." />
+    <meta name="description" content="PokéCardCollector — Your Pokémon card collection" />
     <meta name="theme-color" content="#f4f1e8" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Cardedex" />
-    <title>Cardédex — Pokémon & cards</title>
+    <meta name="apple-mobile-web-app-title" content="PokéCardCollector" />
+    <title>PokéCardCollector — Your Pokémon card collection</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="assets/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=84" />
+    <link rel="stylesheet" href="styles.css?v=103" />
   </head>
   <body>
     <div class="ambient ambient-one"></div>
     <div class="ambient ambient-two"></div>
 
     <header class="site-header">
-      <a class="brand" href="#pokedex" aria-label="Cardédex home">
+      <a class="brand" href="#pokedex" aria-label="PokéCardCollector home">
         <span class="brand-ball" aria-hidden="true"><i></i></span>
-        <span>cardé<span>dex</span></span>
+        <span>PokéCard<span>Collector</span></span>
       </a>
       <nav aria-label="Main navigation">
         <a class="active" href="#pokedex">Pokédex</a>
@@ -42,7 +42,7 @@
 
     <main>
       <section class="hero" id="pokedex">
-        <div class="eyebrow"><span></span> The complete card companion</div>
+        <div class="eyebrow"><span></span> Your Pokémon card collection</div>
         <h1>Every Pokémon.<br /><em>Every card.</em></h1>
         <p>Explore the full Pokédex, then open any Pokémon to discover its trading cards across every era.</p>
         <form class="search-shell" id="searchForm" role="search">
@@ -124,6 +124,10 @@
             </div>
           </header>
           <div class="trade-page-body">
+            <aside class="trade-sharing-guide" aria-labelledby="tradeSharingTitle">
+              <strong id="tradeSharingTitle">Best with people you can message, or people on the same Wi-Fi/hotspot.</strong>
+              <p id="tradeSharingIntro">Send import codes or files through your usual messaging app, or use Nearby transfer in the Android app. Agree on the trade in chat or in person; there is no built-in messaging.</p>
+            </aside>
             <label class="trade-collector-name"><span id="tradeCollectorNameLabel">Your name in shared files</span><input id="tradeCollectorName" maxlength="40" autocomplete="nickname" placeholder="Card collector" /></label>
             <div class="trade-share-controls">
               <label><span id="tradeScopeLabel">Share</span><select id="tradeShareScope"><option value="all">Owned collection</option><option value="duplicates">Duplicates only</option><option value="selected">Selected cards</option></select></label>
@@ -135,6 +139,7 @@
               <button type="button" id="tradeShareCode">Share import code</button>
               <button type="button" id="tradeExportShare">Preview my Trade Binder</button>
               <button type="button" id="tradeImportShare">Open a shared file</button>
+              <button type="button" id="nearbyTradeOpen" hidden>Nearby transfer</button>
               <input type="file" id="tradeImportFile" accept="application/json,.json,.cardedex" hidden />
             </div>
             <details class="trade-code-import">
@@ -165,12 +170,12 @@
       <section class="about" id="about">
         <span>Built for collectors</span>
         <h2>From the very first set<br />to the latest release.</h2>
-        <p>Cardédex brings the National Pokédex and decades of Pokémon card artwork into one calm, searchable collection.</p>
+        <p>PokéCardCollector brings the National Pokédex and decades of Pokémon card artwork into one calm, searchable collection.</p>
       </section>
     </main>
 
     <footer>
-      <a class="brand footer-brand" href="#pokedex"><span class="brand-ball"><i></i></span><span>cardé<span>dex</span></span></a>
+      <a class="brand footer-brand" href="#pokedex"><span class="brand-ball"><i></i></span><span>PokéCard<span>Collector</span></span></a>
       <p>Data from PokéAPI and TCGdex. Pokémon and Pokémon character names are trademarks of Nintendo.</p>
     </footer>
 
@@ -190,7 +195,12 @@
       <div class="scanner-content">
         <span class="section-kicker" id="scannerKicker">Card scanner</span>
         <h2 id="scannerTitle">Scan a Pokémon card</h2>
-        <p id="scannerIntro">Fill the frame with one straight card on a plain surface. Keep its name, HP, attacks, and collector number clear.</p>
+        <p id="scannerIntro">Photograph one card at a time. Take several photos in one camera session, then scan the queue.</p>
+        <aside class="scanner-tips" aria-labelledby="scannerTipsTitle">
+          <strong id="scannerTipsTitle">Before scanning</strong>
+          <p id="scannerTips">Avoid glare and flash. Use soft, even light, hold the phone steady and directly above the cards, and keep every name and collector number sharp and visible.</p>
+          <p id="scannerBatchIntro">Take one photo per physical card. Tap Done to leave the camera, then Scan queued photos and review the proposed matches.</p>
+        </aside>
         <div class="scanner-actions">
           <button type="button" id="scannerCamera">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v10H4V8Z" /><circle cx="12" cy="13" r="3.25" /></svg>
@@ -198,37 +208,42 @@
           </button>
           <button type="button" id="scannerGallery">
             <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="m6 17 4-4 3 3 2-2 3 3" /></svg>
-            <span id="scannerGalleryLabel">Choose picture</span>
-          </button>
-          <button type="button" id="scannerBinderCamera">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM9.3 5l1.2-2h3L15 5M8 9h.01M12 9h.01M16 9h.01M8 14h.01M12 14h.01M16 14h.01"/></svg>
-            <span id="scannerBinderCameraLabel">Photograph binder page</span>
-          </button>
-          <button type="button" id="scannerBinderGallery">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM4 15l4-4 3 3 2-2 7 7"/></svg>
-            <span id="scannerBinderGalleryLabel">Choose binder page</span>
+            <span id="scannerGalleryLabel">Choose photo</span>
           </button>
         </div>
-        <label class="scanner-layout" id="scannerLayoutLabel">
-          <span>Binder layout</span>
-          <select id="scannerBinderLayout">
-            <option value="auto">Auto detect</option>
-            <option value="3x3">3 × 3 · 9 cards</option>
-            <option value="3x4">3 × 4 · 12 cards</option>
-            <option value="4x4">4 × 4 · 16 cards</option>
-          </select>
-        </label>
         <input type="file" id="scannerCameraInput" accept="image/*" capture="environment" hidden />
-        <input type="file" id="scannerGalleryInput" accept="image/*" hidden />
-        <input type="file" id="scannerBinderCameraInput" accept="image/*" capture="environment" hidden />
-        <input type="file" id="scannerBinderGalleryInput" accept="image/*" hidden />
+        <input type="file" id="scannerGalleryInput" accept="image/*" multiple hidden />
+        <section id="scannerPhotoBatch" class="scanner-photo-batch" hidden>
+          <p id="scannerBatchSummary" role="status" aria-live="polite"></p>
+          <div id="scannerPhotoQueue" class="scanner-photo-queue"></div>
+          <div class="scanner-batch-controls">
+            <button type="button" id="scannerBatchStart">Scan queued photos</button>
+            <button type="button" id="scannerBatchClear">Clear photos</button>
+          </div>
+        </section>
         <div class="scanner-workspace" id="scannerWorkspace" hidden>
           <div class="scanner-preview"><img id="scannerPreview" alt="Card selected for scanning" /></div>
-          <div class="scanner-progress" id="scannerProgress" role="status" aria-live="polite"></div>
+          <div class="scanner-progress-panel">
+            <strong id="scannerCurrentPhoto" hidden></strong>
+            <div class="scanner-progress" id="scannerProgress" role="status" aria-live="polite"></div>
+            <progress id="scannerCurrentProgress" max="100" hidden aria-label="Current scan progress"></progress>
+          </div>
         </div>
+        <p id="scannerQualityWarning" class="scanner-quality-warning" role="status" aria-live="polite"></p>
         <div class="scanner-results" id="scannerResults" aria-live="polite"></div>
-        <p class="scanner-privacy" id="scannerPrivacy">Recognition runs on this device. Your picture is not uploaded to Cardédex.</p>
+        <p class="scanner-privacy" id="scannerPrivacy">Photos and text recognition stay on this device. Card names and numbers are sent to the catalogue for matching. The browser downloads its OCR engine and model when first used.</p>
       </div>
+    </dialog>
+
+    <dialog class="scanner-camera-dialog" id="scannerCameraDialog" aria-labelledby="scannerCameraTitle">
+      <header><h2 id="scannerCameraTitle">Photograph cards</h2><button type="button" id="scannerCameraDone">Done</button></header>
+      <div class="scanner-camera-view">
+        <video id="scannerCameraVideo" autoplay muted playsinline></video>
+        <div class="scanner-camera-guide" aria-hidden="true"></div>
+      </div>
+      <p id="scannerCameraHint">One card per photo. Avoid glare and hold steady.</p>
+      <p id="scannerCameraStatus" role="status" aria-live="polite"></p>
+      <button type="button" id="scannerCameraCapture" disabled>Take photo</button>
     </dialog>
 
     <dialog class="collection-dialog" id="collectionDialog">
@@ -299,8 +314,10 @@
           <div class="collection-tools">
             <button id="exportCollection">Export backup</button>
             <button id="importCollection">Import backup</button>
+            <button type="button" id="nearbyCollectionOpen" hidden>Nearby transfer</button>
             <input type="file" id="importFile" accept="application/json" hidden />
           </div>
+          <small id="backupMessage" role="status" aria-live="polite"></small>
           <section class="collection-string-transfer" aria-labelledby="collectionStringTitle">
             <h4 id="collectionStringTitle">Collection import string</h4>
             <p id="collectionStringIntro">Copy a complete local backup as text, or paste one to replace this device's collection.</p>
@@ -313,6 +330,36 @@
       </div>
     </dialog>
 
+    <dialog class="nearby-dialog" id="nearbyDialog" aria-labelledby="nearbyTitle">
+      <button type="button" class="dialog-close" id="nearbyClose" aria-label="Close">×</button>
+      <h2 id="nearbyTitle">Nearby transfer</h2>
+      <p id="nearbyIntro">Both devices must be on the same Wi-Fi or phone hotspot. Keep this screen open. No internet or LocalSend app is needed.</p>
+      <p id="nearbyScope">Card inspection and trade review only. Your own collection cannot be replaced here.</p>
+      <div class="nearby-actions">
+        <button type="button" id="nearbySend">Send</button>
+        <button type="button" id="nearbyReceive">Receive</button>
+      </div>
+      <p id="nearbyStatus" role="status" aria-live="polite"></p>
+      <div id="nearbyQr" class="nearby-qr" hidden></div>
+      <p id="nearbyQrHint" hidden>Ask the receiver to scan this QR. Pairing expires after 10 minutes. Do not share or screenshot it.</p>
+      <div id="nearbyCamera" class="nearby-camera" hidden><video id="nearbyVideo" autoplay muted playsinline></video></div>
+      <div id="nearbySenderControls" class="nearby-send-controls" hidden>
+        <button type="button" id="nearbySendBinder">Send my Trade Binder</button>
+        <small id="nearbyBinderHint">Uses the share scope and wishlist settings on the Trades screen.</small>
+        <button type="button" id="nearbySendOffer">Send current trade offer</button>
+        <button type="button" id="nearbySendInspection">Share my collection for inspection</button>
+        <small id="nearbyInspectionHint">Shares your owned cards without preparing a Trade Binder. Favorites, goals and settings are not shared.</small>
+        <button type="button" id="nearbySendCollection" hidden>Send full collection backup</button>
+        <small id="nearbyCollectionHint" hidden>A full backup includes your cards, favorites, goals and settings. It is for restoring a collection, not comparing trades.</small>
+      </div>
+      <section id="nearbyReceived" class="nearby-received" hidden>
+        <h3 id="nearbyReceivedTitle">Received item</h3>
+        <p id="nearbyReceivedSummary"></p>
+        <p id="nearbyReceivedWarning"></p>
+        <div class="nearby-actions"><button type="button" id="nearbyAccept">Open received item</button><button type="button" id="nearbyReject">Discard</button></div>
+      </section>
+    </dialog>
+
     <template id="pokemonCardTemplate">
       <button class="pokemon-card">
         <span class="favorite-star" aria-label="Add to favorites" role="button">☆</span>
@@ -321,13 +368,14 @@
         <span class="card-copy"><strong></strong><span>View cards <i>↗</i></span></span>
       </button>
     </template>
-    <script src="js/core.js?v=84"></script>
-    <script src="js/catalog.js?v=84"></script>
-    <script src="js/cards.js?v=84"></script>
-    <script src="js/collection.js?v=84"></script>
-    <script src="js/qr.js?v=84"></script>
-    <script src="js/trade.js?v=84"></script>
-    <script src="js/scanner.js?v=84"></script>
-    <script src="app.js?v=84"></script>
+    <script src="js/core.js?v=103"></script>
+    <script src="js/catalog.js?v=103"></script>
+    <script src="js/cards.js?v=103"></script>
+    <script src="js/collection.js?v=103"></script>
+    <script src="js/qr.js?v=103"></script>
+    <script src="js/trade.js?v=103"></script>
+    <script src="js/scanner.js?v=103"></script>
+    <script src="js/nearby.js?v=103"></script>
+    <script src="app.js?v=103"></script>
   </body>
 </html>
