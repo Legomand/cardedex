@@ -831,20 +831,30 @@ function openTradePage() {
   hydrateTradeCardArtwork();
 }
 
-function previewTradeBinder() {
+function currentTradeBinderSnapshot() {
   const scope = document.querySelector("#tradeShareScope").value;
   if (scope === "selected" && !tradeSelectedCards.size) {
     setTradeMessage("nothingSelected", true);
-    return;
+    return null;
   }
   const expiry = Number(document.querySelector("#tradeShareExpiry").value) || 0;
   const includeWishlist = document.querySelector("#tradeIncludeWishlist").checked;
-  outgoingTradeBinder = createTradeBinderSnapshot(scope, expiry, includeWishlist);
+  return createTradeBinderSnapshot(scope, expiry, includeWishlist);
+}
+
+async function shareCurrentTradeBinder() {
+  const binder = currentTradeBinderSnapshot();
+  if (binder) await shareTradeCode(binder);
+}
+
+function previewTradeBinder() {
+  const binder = currentTradeBinderSnapshot();
+  if (!binder) return;
+  outgoingTradeBinder = binder;
   renderOutgoingTradeBinder();
   hydrateTradeCardArtwork();
   setTradeMessage("previewReady");
 }
-
 async function importTradeFile(file) {
   try {
     if (!file || file.size > 2_000_000) throw new Error("size");
@@ -925,6 +935,7 @@ function applyTradeLanguage() {
     tradeScopeLabel: da ? "Del" : "Share",
     tradeExpiryLabel: da ? "Udløber" : "Expires",
     tradeWishlistLabel: da ? "Medtag ønskeliste til matchning" : "Include wishlist for matching",
+    tradeShareCode: da ? "Del importkode" : "Share import code",
     tradeExportShare: da ? "Forhåndsvis min Trade Binder" : "Preview my Trade Binder",
     tradeImportShare: da ? "Åbn en delt fil" : "Open a shared file",
     tradeImportCodeSummary: da ? "Åbn en delt importkode" : "Open a shared import code",
@@ -951,6 +962,7 @@ function initializeTradeBinder() {
   collectorName.value = readTradeProfile().displayName;
   collectorName.addEventListener("change", () => saveTradeProfile(collectorName.value));
   document.querySelector("#tradeShareScope").addEventListener("change", renderTradeSelectedCards);
+  document.querySelector("#tradeShareCode").addEventListener("click", shareCurrentTradeBinder);
   document.querySelector("#tradeExportShare").addEventListener("click", previewTradeBinder);
   document.querySelector("#tradeImportShare").addEventListener("click", () => document.querySelector("#tradeImportFile").click());
   document.querySelector("#tradeImportFile").addEventListener("change", (event) => {

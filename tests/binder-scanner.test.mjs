@@ -554,6 +554,7 @@ test("Trade Binder and local trade-offer contracts are present", () => {
     "tradeBinderTitle",
     "tradeCollectorName",
     "tradeShareScope",
+    "tradeShareCode",
     "tradeExportShare",
     "tradeImportShare",
     "tradeImportCode",
@@ -575,7 +576,7 @@ test("Trade Binder and local trade-offer contracts are present", () => {
   assert.match(tradeSource, /data-trade-more/);
   assert.match(tradeSource, /class="trade-card-grid"/);
   assert.match(tradeSource, /data-show-offer-qr/);
-  assert.match(html, /<script src="js\/qr\.js\?v=78"><\/script>\s*<script src="js\/trade\.js\?v=78"><\/script>/);
+  assert.match(html, /<script src="js\/qr\.js\?v=79"><\/script>\s*<script src="js\/trade\.js\?v=79"><\/script>/);
   assert.match(tradeSource, /CDX1\./);
   assert.match(tradeSource, /#trade\/share\//);
   assert.match(html, /<a href="#trade" id="tradeNav">/);
@@ -686,6 +687,35 @@ test("outgoing Trade Binders use only local collection and profile data", () => 
   assert.equal(snapshot.collection.wanted[0].id, "base1-58");
 });
 
+test("Trade Binder import codes can be shared without opening the preview", async () => {
+  const trade = loadTrade({
+    collectionCards: [
+      { id: "base1-4", name: "Charizard", localId: "4", set: { name: "Base Set" } },
+    ],
+    cardStates: { "base1-4": "owned" },
+    cardCounts: { "base1-4": 2 },
+  });
+  const controls = {
+    "#tradeShareScope": { value: "all" },
+    "#tradeShareExpiry": { value: "7" },
+    "#tradeIncludeWishlist": { checked: true },
+  };
+  const queries = [];
+  let copied = "";
+  trade.document.querySelector = (selector) => {
+    queries.push(selector);
+    return controls[selector] || null;
+  };
+  trade.navigator = { clipboard: { async writeText(value) { copied = value; } } };
+
+  await trade.shareCurrentTradeBinder();
+
+  assert.match(copied, /^CDX1\./);
+  const shared = trade.decodeTradeShareCode(copied);
+  assert.equal(shared.collection.owned[0].id, "base1-4");
+  assert.equal(shared.collection.owned[0].quantity, 2);
+  assert.equal(queries.includes("#tradeOutgoing"), false);
+});
 test("Trade Binder import sanitizes records and rejects expired snapshots", () => {
   const trade = loadTrade();
   const clean = trade.sanitizeTradeBinder({

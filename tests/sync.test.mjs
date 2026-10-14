@@ -599,15 +599,15 @@ test("local sharing previews remain phone-friendly and refresh the PWA shell", (
   assert.doesNotMatch(styles, /\.catalog-filter-status\{margin-top:-15px\}/);
   assert.match(collectionSource, /function updateMode\(event\)/);
   assert.match(collectionSource, /updateCompletionButtons\(\);\s*\n\}/);
-  assert.match(serviceWorker, /cardedex-shell-v78/);
-  assert.match(serviceWorker, /\.\/js\/qr\.js\?v=78/);
+  assert.match(serviceWorker, /cardedex-shell-v79/);
+  assert.match(serviceWorker, /\.\/js\/qr\.js\?v=79/);
   assert.doesNotMatch(serviceWorker, /backend-config|js\/auth|js\/sync/);
   for (const asset of [
     "styles.css", "js/core.js", "js/catalog.js", "js/cards.js",
     "js/collection.js", "js/qr.js", "js/trade.js", "js/scanner.js", "app.js",
   ]) {
-    assert.match(html, new RegExp(`${asset.replace(".", "\\.")}\\?v=78`));
-    assert.match(serviceWorker, new RegExp(`${asset.replace(".", "\\.")}\\?v=78`));
+    assert.match(html, new RegExp(`${asset.replace(".", "\\.")}\\?v=79`));
+    assert.match(serviceWorker, new RegExp(`${asset.replace(".", "\\.")}\\?v=79`));
   }
 });
 
