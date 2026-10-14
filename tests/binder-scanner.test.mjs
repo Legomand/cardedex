@@ -112,10 +112,15 @@ test("collection is available from the mobile bottom navigation", () => {
   assert.match(appSource, /hash === "#collection"/);
   assert.match(appSource, /collectionDialog\.addEventListener\("close"/);
   assert.match(stylesSource, /\.collection-nav \{ display:none; \}/);
-  assert.match(stylesSource, /\.site-header nav \.collection-nav \{ display:block; \}/);
+  assert.match(stylesSource, /\.site-header nav \.collection-nav \{ display:flex; \}/);
   assert.match(stylesSource, /\.site-header nav a\[href="#about"\] \{ display:none; \}/);
   assert.match(stylesSource, /\.site-header \.collection-button \{ display:none; \}/);
   assert.match(stylesSource, /\.mobile-about \{ display:inline-flex;/);
+  assert.match(stylesSource, /height:calc\(68px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(stylesSource, /background:var\(--white\); box-shadow:0 -8px 26px/);
+  assert.match(stylesSource, /\.site-header nav a\.active \{ color:var\(--ink\); background:var\(--cream\)/);
+  assert.match(stylesSource, /a\.active::after \{ width:28px;[^}]+transform:translateX\(-50%\)/);
+  assert.doesNotMatch(stylesSource, /a\[href="#(?:pokedex|trade|collection)"\]::before/);
 });
 
 test("an activated PWA shell reloads the open page once", () => {
@@ -576,7 +581,7 @@ test("Trade Binder and local trade-offer contracts are present", () => {
   assert.match(tradeSource, /data-trade-more/);
   assert.match(tradeSource, /class="trade-card-grid"/);
   assert.match(tradeSource, /data-show-offer-qr/);
-  assert.match(html, /<script src="js\/qr\.js\?v=79"><\/script>\s*<script src="js\/trade\.js\?v=79"><\/script>/);
+  assert.match(html, /<script src="js\/qr\.js\?v=82"><\/script>\s*<script src="js\/trade\.js\?v=82"><\/script>/);
   assert.match(tradeSource, /CDX1\./);
   assert.match(tradeSource, /#trade\/share\//);
   assert.match(html, /<a href="#trade" id="tradeNav">/);

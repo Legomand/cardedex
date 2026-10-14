@@ -533,15 +533,16 @@ body.drawer-open { overflow:hidden; }
 }
 @media (max-width:390px) { .hero h1{font-size:50px}.pokemon-card{height:250px}.image-stage{height:155px}.image-stage img{width:130px;height:130px}.facts{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:720px) {
-  body { padding-bottom:58px; }
-  .site-header nav { position:fixed; z-index:30; right:0; bottom:0; left:0; display:flex; align-items:center; justify-content:space-around; height:58px; gap:0; padding:0 12px; border-top:1px solid var(--line); background:var(--paper); box-shadow:0 -8px 24px rgba(25,35,30,.08); }
-  .site-header nav a { flex:1; min-width:0; padding:18px 6px; font-size:12px; text-align:center; }
-  .site-header nav .collection-nav { display:block; }
+  body { padding-bottom:calc(68px + env(safe-area-inset-bottom)); }
+  .site-header nav { position:fixed; z-index:30; right:0; bottom:0; left:0; display:flex; align-items:center; justify-content:space-around; height:calc(68px + env(safe-area-inset-bottom)); gap:5px; padding:8px 10px calc(8px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--white); box-shadow:0 -8px 26px rgba(25,35,30,.12); }
+  .site-header nav a { display:flex; flex:1; align-items:center; justify-content:center; min-width:0; min-height:48px; padding:10px 8px; border-radius:13px; color:var(--muted); font-size:12px; font-weight:750; text-align:center; }
+  .site-header nav a.active { color:var(--ink); background:var(--cream); box-shadow:inset 0 0 0 1px var(--line); }
+  .site-header nav .collection-nav { display:flex; }
   .site-header nav a[href="#about"] { display:none; }
   .site-header .collection-button { display:none; }
   .mobile-about { display:inline-flex; align-items:center; min-height:34px; padding:0 7px; border-radius:9px; }
   .mobile-about.active { background:var(--cream); }
-  .site-header nav a.active::after { bottom:9px; }
+  .site-header nav a.active::after { width:28px; height:3px; bottom:4px; border-radius:3px; transform:translateX(-50%); }
   .trade-page { min-height:calc(100vh - 128px); padding:24px 12px 44px; }
   .trade-page-shell { padding:18px 14px; border-radius:17px; }
   .trade-page-heading { align-items:flex-start; flex-direction:column; gap:10px; padding-bottom:17px; }
