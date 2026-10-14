@@ -194,6 +194,20 @@ function updateCompletionButtons() {
     if (button) button.disabled = !select?.value || tracked.has(select.value);
   });
 }
+
+// Compatibility for clients that briefly cached an earlier app shell which
+// registered this completion-controls handler under the old name.
+function updateMode(event) {
+  if (event?.target?.id === "completionMode") {
+    state.completionMode = event.target.value === "master" ? "master" : "set";
+    saveUser();
+    renderCompletionTracker();
+    loadCompletionDetails();
+    return;
+  }
+  updateCompletionButtons();
+}
+
 function renderCompletionTracker() {
   const seriesSelect = document.querySelector("#completionSeriesSelect");
   const setSelect = document.querySelector("#completionSetSelect");

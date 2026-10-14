@@ -575,7 +575,7 @@ test("Trade Binder and local trade-offer contracts are present", () => {
   assert.match(tradeSource, /data-trade-more/);
   assert.match(tradeSource, /class="trade-card-grid"/);
   assert.match(tradeSource, /data-show-offer-qr/);
-  assert.match(html, /<script src="js\/qr\.js\?v=76"><\/script>\s*<script src="js\/trade\.js\?v=76"><\/script>/);
+  assert.match(html, /<script src="js\/qr\.js\?v=78"><\/script>\s*<script src="js\/trade\.js\?v=78"><\/script>/);
   assert.match(tradeSource, /CDX1\./);
   assert.match(tradeSource, /#trade\/share\//);
   assert.match(html, /<a href="#trade" id="tradeNav">/);
