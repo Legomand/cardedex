@@ -38,6 +38,10 @@ function renderCollectionSummary() {
     : ownedIds.length && !tcgplayerPriced
     ? "—"
     : collectionValueMoney(tcgplayerTotal, "USD");
+  const cardValue = document.querySelector("#collectionCardValue");
+  if (cardValue) {
+    cardValue.innerHTML = `<span><b>${cmText}</b> Cardmarket</span><span><b>${tcgText}</b> TCGplayer</span>`;
+  }
   document.querySelector("#collectionStats").innerHTML =
     `<div><strong>${ownedCopies}</strong><span>${
       t("ownedCopies")
@@ -99,6 +103,31 @@ function completionOwnedBySet() {
   });
   return counts;
 }
+function completionAssetUrl(value) {
+  if (typeof value !== "string" || !value.startsWith("https://")) return "";
+  if (/\.(?:webp|png|jpe?g)(?:[?#].*)?$/iu.test(value)) return value;
+  const suffix = value.search(/[?#]/u);
+  return suffix < 0
+    ? `${value}.webp`
+    : `${value.slice(0, suffix)}.webp${value.slice(suffix)}`;
+}
+function completionArtwork(kind, item, sets) {
+  const candidates = kind === "series"
+    ? (item.logo ? [item] : [...sets].sort((a, b) =>
+      (Number(a.setOrder) || 0) - (Number(b.setOrder) || 0)
+    ))
+    : [item];
+  const sources = [...new Set(candidates.map((entry) =>
+    completionAssetUrl(entry?.logo || entry?.symbol || "")
+  ).filter(Boolean))]
+    .slice(0, kind === "series" ? 3 : 1);
+  const fallback = String(item.name || "?").trim().slice(0, 1).toUpperCase() || "?";
+  return `<div class="completion-artwork${sources.length > 1 ? " completion-artwork-collage" : ""}" aria-hidden="true"><span>${escapeHtml(fallback)}</span>${
+    sources.map((source) =>
+      `<img loading="lazy" src="${escapeHtml(source)}" alt="">`
+    ).join("")
+  }</div>`;
+}
 function completionProgressItem(kind, item, ownedBySet) {
   const sets = kind === "series"
     ? state.cardSets.filter((set) => set.seriesId === item.id)
@@ -116,7 +145,8 @@ function completionProgressItem(kind, item, ownedBySet) {
   const percentage = total ? Math.round(owned / total * 100) : 0;
   const label = kind === "series" ? t("series") : t("set");
   return `<article class="completion-item" data-completion-kind="${kind}" data-completion-id="${escapeHtml(item.id)}">
-    <div class="completion-item-copy"><span>${escapeHtml(label)}</span><strong>${escapeHtml(item.name)}</strong><div class="completion-progress" aria-label="${percentage}%"><i style="width:${percentage}%"></i></div></div>
+    ${completionArtwork(kind, item, sets)}
+    <div class="completion-item-copy"><span>${escapeHtml(label)}</span><strong>${escapeHtml(item.name)}</strong><div class="completion-progress" role="progressbar" aria-label="${escapeHtml(item.name)}: ${percentage}%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentage}"><i style="width:${percentage}%"></i></div></div>
     <div class="completion-item-meta"><strong>${percentage}%</strong><span>${escapeHtml(t(state.completionMode === "master" ? "completionPrintings" : "completionOwned", { owned, total }))}</span><button type="button" class="completion-remove" data-remove-completion aria-label="${escapeHtml(t("untrack"))}" title="${escapeHtml(t("untrack"))}">×</button></div>
   </article>`;
 }
@@ -505,27 +535,69 @@ async function showCollection() {
   renderCollectionCards();
   if (typeof renderTradeBinder === "function") renderTradeBinder();
 }
+const COLLECTION_IMPORT_STRING_PREFIX = "CDXC1.";
+const COLLECTION_IMPORT_STRING_LIMIT = 2_000_000;
+
+function collectionBackupSnapshot() {
+  return {
+    version: 6,
+    exportedAt: new Date().toISOString(),
+    favorites: [...state.favorites],
+    cardStates: state.cardStates,
+    cardCounts: state.cardCounts,
+    cardPrintVariants: state.cardPrintVariants,
+    cardOwnedVariants: state.cardOwnedVariants,
+    trackedSeries: [...state.trackedSeries],
+    trackedSets: [...state.trackedSets],
+    completionMode: state.completionMode,
+    settings: state.settings,
+  };
+}
+
+function encodeCollectionImportString(snapshot = collectionBackupSnapshot()) {
+  const bytes = new TextEncoder().encode(JSON.stringify(snapshot));
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return `${COLLECTION_IMPORT_STRING_PREFIX}${btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/u, "")}`;
+}
+
+function decodeCollectionImportString(input) {
+  const value = String(input || "").trim();
+  if (!value.startsWith(COLLECTION_IMPORT_STRING_PREFIX) || value.length > COLLECTION_IMPORT_STRING_LIMIT) {
+    throw new Error("invalid-collection-string");
+  }
+  const encoded = value.slice(COLLECTION_IMPORT_STRING_PREFIX.length).replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(encoded + "=".repeat((4 - encoded.length % 4) % 4));
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function restoreCollectionBackup(data) {
+  if (!data || typeof data !== "object" || Number(data.version || 0) > 6) {
+    throw new Error("invalid-backup");
+  }
+  state.favorites = new Set(data.favorites || []);
+  state.cardStates = data.cardStates || {};
+  state.cardCounts = data.cardCounts || {};
+  state.cardPrintVariants = data.cardPrintVariants || {};
+  state.cardOwnedVariants = data.cardOwnedVariants || {};
+  state.trackedSeries = new Set(data.trackedSeries || []);
+  state.trackedSets = new Set(data.trackedSets || []);
+  state.completionMode = data.completionMode === "master" ? "master" : "set";
+  state.settings = { ...state.settings, ...data.settings };
+  state.settings.valuationCurrency = normalizeValuationCurrency(
+    state.settings.valuationCurrency,
+  );
+  saveUser();
+  applySettings();
+  renderPokemon();
+  showCollection();
+}
+
 function exportCollection() {
-  const blob = new Blob([JSON.stringify(
-    {
-      version: 6,
-      exportedAt: new Date().toISOString(),
-      profile: typeof syncProfile === "object"
-        ? { displayName: syncProfile.displayName, revision: syncProfile.revision }
-        : undefined,
-      favorites: [...state.favorites],
-      cardStates: state.cardStates,
-      cardCounts: state.cardCounts,
-      cardPrintVariants: state.cardPrintVariants,
-      cardOwnedVariants: state.cardOwnedVariants,
-      trackedSeries: [...state.trackedSeries],
-      trackedSets: [...state.trackedSets],
-      completionMode: state.completionMode,
-      settings: state.settings,
-    },
-    null,
-    2,
-  )], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(collectionBackupSnapshot(), null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = "cardedex-collection-backup.json";
@@ -534,24 +606,43 @@ function exportCollection() {
 }
 async function importCollection(file) {
   try {
-    const data = JSON.parse(await file.text());
-    state.favorites = new Set(data.favorites || []);
-    state.cardStates = data.cardStates || {};
-    state.cardCounts = data.cardCounts || {};
-    state.cardPrintVariants = data.cardPrintVariants || {};
-    state.cardOwnedVariants = data.cardOwnedVariants || {};
-    state.trackedSeries = new Set(data.trackedSeries || []);
-    state.trackedSets = new Set(data.trackedSets || []);
-    state.completionMode = data.completionMode === "master" ? "master" : "set";
-    state.settings = { ...state.settings, ...data.settings };
-    state.settings.valuationCurrency = normalizeValuationCurrency(
-      state.settings.valuationCurrency,
-    );
-    saveUser();
-    applySettings();
-    renderPokemon();
-    showCollection();
+    restoreCollectionBackup(JSON.parse(await file.text()));
   } catch {
     alert(t("invalidBackup"));
+  }
+}
+
+async function copyCollectionImportString() {
+  const field = document.querySelector("#collectionImportString");
+  const message = document.querySelector("#collectionStringMessage");
+  if (!field) return false;
+  const value = encodeCollectionImportString();
+  field.value = value;
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      copied = true;
+    }
+  } catch {}
+  if (!copied) {
+    field.focus();
+    field.select();
+  }
+  if (message) message.textContent = t(copied ? "collectionStringCopied" : "collectionStringReady");
+  return copied;
+}
+
+function importCollectionString(input) {
+  try {
+    restoreCollectionBackup(decodeCollectionImportString(input));
+    const field = document.querySelector("#collectionImportString");
+    const message = document.querySelector("#collectionStringMessage");
+    if (field) field.value = "";
+    if (message) message.textContent = t("collectionStringImported");
+    return true;
+  } catch {
+    alert(t("invalidBackup"));
+    return false;
   }
 }

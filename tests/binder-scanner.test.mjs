@@ -18,6 +18,9 @@ const catalogSource = fs.readFileSync(path.join(root, "js/catalog.js"), "utf8");
 const authSource = fs.readFileSync(path.join(root, "js/auth.js"), "utf8");
 const syncSource = fs.readFileSync(path.join(root, "js/sync.js"), "utf8");
 const tradeSource = fs.readFileSync(path.join(root, "js/trade.js"), "utf8");
+const qrSource = fs.readFileSync(path.join(root, "js/qr.js"), "utf8");
+const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const stylesSource = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const accountSyncSql = fs.readFileSync(
   path.join(root, "backend/supabase-account-sync.sql"),
   "utf8",
@@ -66,17 +69,60 @@ test("binder controls exist once and are wired to scanner code", () => {
   }
 });
 
-test("saved cards are the primary collection workspace", () => {
+test("collection workspace uses separate tabs with collected-card values", () => {
+  const tabsPosition = html.indexOf('class="collection-tabs"');
   const browserPosition = html.indexOf('class="collection-browser"');
-  const overviewPosition = html.indexOf('class="collection-disclosure collection-overview"');
+  const completionPosition = html.indexOf('id="collectionPanelCompletion"');
+  const favoritesPosition = html.indexOf('id="collectionPanelFavorites"');
+  const valuesPosition = html.indexOf('id="collectionPanelValues"');
+  const backupPosition = html.indexOf('id="collectionPanelBackup"');
   const statsPosition = html.indexOf('id="collectionStats"');
-  assert.ok(browserPosition > -1);
-  assert.ok(overviewPosition > browserPosition);
-  assert.ok(statsPosition > overviewPosition);
-  assert.doesNotMatch(
-    html.slice(overviewPosition, html.indexOf(">", overviewPosition) + 1),
-    /\sopen(?:\s|>)/,
-  );
+  const tabsMarkup = html.slice(tabsPosition, browserPosition);
+  assert.ok(tabsPosition > -1);
+  assert.ok(browserPosition > tabsPosition);
+  assert.ok(completionPosition > browserPosition);
+  assert.ok(favoritesPosition > completionPosition);
+  assert.ok(valuesPosition > favoritesPosition);
+  assert.ok(backupPosition > valuesPosition);
+  assert.ok(statsPosition > valuesPosition && statsPosition < backupPosition);
+  assert.ok(tabsMarkup.indexOf("collectionTabCards") < tabsMarkup.indexOf("collectionTabCompletion"));
+  assert.ok(tabsMarkup.indexOf("collectionTabCompletion") < tabsMarkup.indexOf("collectionTabFavorites"));
+  assert.ok(tabsMarkup.indexOf("collectionTabFavorites") < tabsMarkup.indexOf("collectionTabValues"));
+  assert.ok(tabsMarkup.indexOf("collectionTabValues") < tabsMarkup.indexOf("collectionTabBackup"));
+  assert.match(html, /id="collectionCardsTitle">Collected cards</);
+  assert.match(html, /id="collectionCardValue"/);
+  assert.match(html, /role="tab"[^>]+aria-controls="collectionPanelCards"/);
+  assert.match(html, /role="tab"[^>]+aria-controls="collectionPanelValues"/);
+  assert.match(html, /role="tab"[^>]+aria-controls="collectionPanelBackup"/);
+  assert.match(html, /role="tab"[^>]+aria-controls="collectionPanelCompletion"/);
+  assert.match(html, /role="tab"[^>]+aria-controls="collectionPanelFavorites"/);
+  assert.match(html, /id="collectionTabCards"[^>]*>Cards</);
+  assert.match(html, /id="collectionTabCompletion"[^>]*>Goals</);
+  assert.match(html, /id="collectionTabValues"[^>]*>Value</);
+  assert.match(appSource, /function activateCollectionTab\(/);
+  assert.match(appSource, /ArrowRight/);
+  assert.match(collectionSource, /#collectionCardValue/);
+  assert.match(stylesSource, /grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+});
+
+test("collection is available from the mobile bottom navigation", () => {
+  assert.equal((html.match(/id="collectionNav"/g) || []).length, 1);
+  assert.match(html, /class="collection-nav" href="#collection"/);
+  assert.match(html, /class="mobile-about" id="mobileAbout" href="#about"/);
+  assert.match(appSource, /hash === "#collection"/);
+  assert.match(appSource, /collectionDialog\.addEventListener\("close"/);
+  assert.match(stylesSource, /\.collection-nav \{ display:none; \}/);
+  assert.match(stylesSource, /\.site-header nav \.collection-nav \{ display:block; \}/);
+  assert.match(stylesSource, /\.site-header nav a\[href="#about"\] \{ display:none; \}/);
+  assert.match(stylesSource, /\.site-header \.collection-button \{ display:none; \}/);
+  assert.match(stylesSource, /\.mobile-about \{ display:inline-flex;/);
+});
+
+test("an activated PWA shell reloads the open page once", () => {
+  assert.match(appSource, /serviceWorker\.addEventListener\("controllerchange"/);
+  assert.match(appSource, /reloadingForServiceWorker/);
+  assert.match(appSource, /location\.reload\(\)/);
+  assert.match(appSource, /registration\.update\(\)/);
 });
 
 test("auto layout chooses common 9-pocket and 12-pocket pages", () => {
@@ -169,9 +215,20 @@ test("card filters default to the complete matching card catalogue", () => {
   assert.match(catalogSource, /const showCards = filterActive;/);
   assert.match(catalogSource, /state\.catalogView = showCards \? "cards" : "pokemon"/);
   assert.match(catalogSource, /classList\.toggle\("cards-view", showCards\)/);
+  assert.match(catalogSource, /class="card-status catalog-card-status"/);
+  assert.match(catalogSource, /data-status="owned" aria-pressed=/);
+  assert.match(catalogSource, /data-status="wanted" aria-pressed=/);
+  assert.match(appSource, /catalogCardGrid\.addEventListener\("click"[\s\S]*?setCardStatus\(item\.dataset\.cardId, status\.dataset\.status\)/);
+  const catalogCardGrid = { innerHTML: "" };
   const context = vm.createContext({
     setCode(id) { return id.slice(0, id.lastIndexOf("-")); },
     deriveVariant() { return "Standard"; },
+    escapeHtml(value) { return String(value); },
+    cardImageUrl(card) { return `https://images.test/${card.id}.webp`; },
+    t(key) { return key; },
+    catalogCardGrid,
+    resultCount: { textContent: "" },
+    loadMore: { hidden: false },
     state: {
       catalogCards: [
         { id: "base1-4", localId: "4", name: "Charizard" },
@@ -190,6 +247,8 @@ test("card filters default to the complete matching card catalogue", () => {
       artistCardIds: null,
       rarityCardIds: null,
       cardSets: [],
+      cardStates: { "base1-4": "owned", "base1-88": "wanted" },
+      catalogVisible: 100,
       generation: "all",
     },
   });
@@ -199,6 +258,9 @@ test("card filters default to the complete matching card catalogue", () => {
     ["Charizard", "Professor Oak", "Water Energy"],
   );
   assert.equal(context.catalogCardFilterActive(), true);
+  context.renderCatalogCards();
+  assert.match(catalogCardGrid.innerHTML, /data-card-id="base1-4"[\s\S]*?data-status="owned" aria-pressed="true"/);
+  assert.match(catalogCardGrid.innerHTML, /data-card-id="base1-88"[\s\S]*?data-status="wanted" aria-pressed="true"/);
   context.state.catalogRarity = "Rare";
   context.state.rarityCards = [
     { id: "base1-4", localId: "4", name: "Charizard" },
@@ -475,34 +537,115 @@ function loadTrade(overrides = {}) {
     escapeHtml(value) { return String(value); },
     URL,
     Blob,
+    TextEncoder,
+    TextDecoder,
+    Uint8Array,
+    btoa,
+    atob,
     setTimeout,
   });
+  vm.runInContext(qrSource, context, { filename: "js/qr.js" });
   vm.runInContext(tradeSource, context, { filename: "js/trade.js" });
   return context;
 }
 
-test("Trade Binder and private account sync contracts are present", () => {
+test("Trade Binder and local trade-offer contracts are present", () => {
   for (const id of [
     "tradeBinderTitle",
+    "tradeCollectorName",
     "tradeShareScope",
     "tradeExportShare",
     "tradeImportShare",
+    "tradeImportCode",
+    "tradeImportCodeButton",
+    "tradeShareDialog",
     "tradeInspector",
+    "tradeOutgoing",
+    "tradeOfferInspector",
   ]) {
     assert.equal((html.match(new RegExp(`id=["']${id}["']`, "g")) || []).length, 1);
   }
   assert.match(tradeSource, /cardedex-trade-binder\/v1/);
-  assert.match(syncSource, /cardedex-user-data/);
-  assert.match(syncSource, /sync_collection_snapshot/);
-  assert.match(syncSource, /Sync paused · review both collections below/);
-  assert.match(authSource, /signInWithOtp/);
-  assert.match(authSource, /shouldCreateUser: true/);
-  assert.match(authSource, /verifyOtp/);
-  assert.match(accountSyncSql, /security definer/);
-  assert.match(accountSyncSql, /v_current_revision <> p_base_revision/);
-  assert.match(accountSyncSql, /grant execute[\s\S]+to authenticated/);
-  assert.doesNotMatch(accountSyncSql, /grant execute[\s\S]+to anon/);
-  assert.equal(accountSyncMigration, accountSyncSql);
+  assert.match(tradeSource, /cardedex-trade-proposal\/v1/);
+  assert.match(tradeSource, /sanitizeTradeProposal/);
+  assert.match(tradeSource, /navigator\.share/);
+  assert.match(tradeSource, /hydrateTradeCardArtwork/);
+  assert.match(tradeSource, /cardImageUrl\(candidate, "low"\)/);
+  assert.match(tradeSource, /tradeRemoteVisible = 36/);
+  assert.match(tradeSource, /data-trade-more/);
+  assert.match(tradeSource, /class="trade-card-grid"/);
+  assert.match(tradeSource, /data-show-offer-qr/);
+  assert.match(html, /<script src="js\/qr\.js\?v=76"><\/script>\s*<script src="js\/trade\.js\?v=76"><\/script>/);
+  assert.match(tradeSource, /CDX1\./);
+  assert.match(tradeSource, /#trade\/share\//);
+  assert.match(html, /<a href="#trade" id="tradeNav">/);
+  assert.match(html, /<section class="trade-page trade-binder" id="trade"/);
+  assert.ok(html.indexOf('id="trade"') < html.indexOf('id="collectionDialog"'));
+  assert.match(appSource, /function applyPageView\(\)/);
+  assert.match(appSource, /hash === "#trade"/);
+  assert.match(appSource, /hash\.startsWith\("#trade\/share\/"\)/);
+  assert.match(appSource, /consumeTradeShareHash\(\)/);
+  assert.doesNotMatch(html, /js\/auth\.js|js\/sync\.js|backend-config|supabase(?:\.min)?\.js/);
+});
+
+test("QR transport is offer-only and enforces its byte capacity", () => {
+  const context = vm.createContext({ TextEncoder, Uint8Array });
+  vm.runInContext(qrSource, context, { filename: "js/qr.js" });
+  assert.equal(context.CardedexQr.MAX_BYTES, 213);
+  const encoded = context.CardedexQr.encode("CDX1.TEST");
+  assert.equal(encoded.version, 1);
+  assert.equal(encoded.matrix.length, 21);
+  assert.match(context.CardedexQr.toSvg("CDX1.TEST"), /^<svg/);
+  assert.throws(() => context.CardedexQr.encode("A".repeat(214)), /qr-capacity/);
+  const binderRenderer = tradeSource.slice(
+    tradeSource.indexOf("function renderOutgoingTradeBinder"),
+    tradeSource.indexOf("function renderTradeOffer"),
+  );
+  assert.doesNotMatch(binderRenderer, /data-show-offer-qr|CardedexQr/);
+});
+
+test("trade import strings compactly round-trip binders and offers", () => {
+  const trade = loadTrade();
+  const binder = {
+    schema: "cardedex-trade-binder/v1",
+    shareId: "share-link",
+    createdAt: "2026-10-14T12:00:00.000Z",
+    expiresAt: "2026-10-21T12:00:00.000Z",
+    owner: { displayName: "Alex Ø" },
+    scope: "duplicates",
+    collection: {
+      owned: [{ id: "base1-4", name: "Charizard", quantity: 2 }],
+      wanted: [{ id: "base1-58", name: "Pikachu" }],
+    },
+  };
+  const binderCode = trade.encodeTradeShareCode(binder);
+  assert.match(binderCode, /^CDX1\./);
+  assert.doesNotMatch(binderCode, /https?:/);
+  assert.ok(binderCode.length < JSON.stringify(binder).length);
+  const decodedBinder = trade.decodeTradeShareCode(`https://example.test/#trade/share/${binderCode}`);
+  assert.equal(decodedBinder.schema, binder.schema);
+  assert.equal(decodedBinder.owner.displayName, "Alex Ø");
+  assert.equal(decodedBinder.scope, "duplicates");
+  assert.equal(decodedBinder.collection.owned[0].quantity, 2);
+  assert.equal(decodedBinder.collection.wanted[0].id, "base1-58");
+
+  const offer = {
+    schema: "cardedex-trade-proposal/v1",
+    proposalId: "proposal-link",
+    createdAt: "2026-10-14T12:00:00.000Z",
+    parties: { owner: "Alex", guest: "Sam" },
+    sourceShareId: "share-link",
+    cardsFromOwner: [{ id: "base1-4", quantity: 1 }],
+    cardsFromGuest: [{ id: "base1-58", quantity: 2 }],
+    note: "Meet Saturday",
+  };
+  const decodedOffer = trade.decodeTradeShareCode(trade.encodeTradeShareCode(offer));
+  assert.equal(decodedOffer.schema, offer.schema);
+  assert.equal(decodedOffer.parties.guest, "Sam");
+  assert.equal(decodedOffer.cardsFromGuest[0].quantity, 2);
+  assert.equal(decodedOffer.note, "Meet Saturday");
+  assert.equal(trade.tradeOfferQrData(offer).available, true);
+  assert.equal(trade.tradeOfferQrData({ ...offer, note: "x".repeat(240) }).available, false);
 });
 
 test("Trade Binder comparison finds wanted cards on both sides", () => {
@@ -521,6 +664,26 @@ test("Trade Binder comparison finds wanted cards on both sides", () => {
   assert.deepEqual([...comparison.giveWanted].map((card) => card.id), ["base1-1"]);
   assert.deepEqual([...comparison.receiveMissing].map((card) => card.id), ["base1-3", "base1-4"]);
   assert.deepEqual([...comparison.localDuplicates].map((card) => card.id), ["base1-1"]);
+});
+
+test("outgoing Trade Binders use only local collection and profile data", () => {
+  const trade = loadTrade({
+    collectionCards: [
+      { id: "base1-4", name: "Charizard", localId: "4", set: { name: "Base Set" } },
+      { id: "base1-58", name: "Pikachu", localId: "58", set: { name: "Base Set" } },
+    ],
+    cardStates: { "base1-4": "owned", "base1-58": "wanted" },
+    cardCounts: { "base1-4": 2 },
+    cardOwnedVariants: { "base1-4": ["holo"] },
+  });
+  trade.saveTradeProfile("Alex");
+  const snapshot = trade.createTradeBinderSnapshot("all", 7, true);
+  assert.equal(snapshot.schema, "cardedex-trade-binder/v1");
+  assert.equal(snapshot.owner.displayName, "Alex");
+  assert.equal(snapshot.collection.owned[0].quantity, 2);
+  assert.equal("printings" in snapshot.collection.owned[0], false);
+  assert.equal("image" in snapshot.collection.owned[0], false);
+  assert.equal(snapshot.collection.wanted[0].id, "base1-58");
 });
 
 test("Trade Binder import sanitizes records and rejects expired snapshots", () => {
@@ -543,4 +706,93 @@ test("Trade Binder import sanitizes records and rejects expired snapshots", () =
     expiresAt: "2020-01-01T00:00:00Z",
     collection: { owned: [], wanted: [] },
   }), /expired/);
+});
+
+test("trade offers are sanitized and remain non-mutating drafts", () => {
+  const trade = loadTrade();
+  const offer = trade.sanitizeTradeProposal({
+    schema: "cardedex-trade-proposal/v1",
+    proposalId: "proposal-safe",
+    createdAt: "2026-10-14T12:00:00Z",
+    status: "accepted",
+    parties: { owner: "Alex", guest: "Sam" },
+    cardsFromOwner: [{ id: "base1-4", name: "Charizard", quantity: 9999 }],
+    cardsFromGuest: [{ id: "base1-58", name: "Pikachu", quantity: 1 }],
+  });
+  assert.equal(offer.status, "draft");
+  assert.equal(offer.cardsFromOwner[0].quantity, 999);
+  assert.equal("printings" in offer.cardsFromOwner[0], false);
+  assert.equal(offer.cardsFromGuest[0].id, "base1-58");
+  assert.throws(() => trade.sanitizeTradeProposal({
+    schema: "cardedex-trade-proposal/v1",
+    proposalId: "empty",
+    parties: {},
+    cardsFromOwner: [],
+    cardsFromGuest: [],
+  }), /cards/);
+});
+
+test("completed physical trades reconcile one chosen side atomically", () => {
+  const trade = loadTrade();
+  const collection = {
+    cardStates: { "base1-4": "owned", "base1-58": "wanted" },
+    cardCounts: { "base1-4": 2 },
+    cardPrintVariants: { "base1-4": "holo" },
+    cardOwnedVariants: { "base1-4": ["holo"] },
+  };
+  const offer = trade.sanitizeTradeProposal({
+    schema: "cardedex-trade-proposal/v1",
+    proposalId: "trade-atomic",
+    parties: { owner: "Alex", guest: "Sam" },
+    cardsFromOwner: [{ id: "base1-4", name: "Charizard", quantity: 2 }],
+    cardsFromGuest: [{ id: "base1-58", name: "Pikachu", quantity: 3 }],
+  });
+  const plan = trade.buildTradeReconciliation(offer, "owner", collection, new Set());
+  assert.equal(plan.errors.length, 0);
+  assert.deepEqual([...plan.changes].map((change) => [change.id, change.before, change.after]), [
+    ["base1-4", 2, 0],
+    ["base1-58", 0, 3],
+  ]);
+  trade.applyTradeReconciliation(plan, collection);
+  assert.equal("base1-4" in collection.cardStates, false);
+  assert.equal("base1-4" in collection.cardCounts, false);
+  assert.equal("base1-4" in collection.cardPrintVariants, false);
+  assert.equal("base1-4" in collection.cardOwnedVariants, false);
+  assert.equal(collection.cardStates["base1-58"], "owned");
+  assert.equal(collection.cardCounts["base1-58"], 3);
+
+  const guestCollection = {
+    cardStates: { "base1-58": "owned", "base1-4": "wanted" },
+    cardCounts: { "base1-58": 3 },
+    cardPrintVariants: {},
+    cardOwnedVariants: {},
+  };
+  const guestPlan = trade.buildTradeReconciliation(offer, "guest", guestCollection, new Set());
+  trade.applyTradeReconciliation(guestPlan, guestCollection);
+  assert.equal("base1-58" in guestCollection.cardStates, false);
+  assert.equal(guestCollection.cardStates["base1-4"], "owned");
+  assert.equal(guestCollection.cardCounts["base1-4"], 2);
+});
+
+test("trade reconciliation blocks stale quantities and repeated application", () => {
+  const trade = loadTrade();
+  const collection = {
+    cardStates: { "base1-4": "owned" },
+    cardCounts: { "base1-4": 1 },
+    cardPrintVariants: {},
+    cardOwnedVariants: {},
+  };
+  const offer = trade.sanitizeTradeProposal({
+    schema: "cardedex-trade-proposal/v1",
+    proposalId: "trade-stale",
+    parties: { owner: "Alex", guest: "Sam" },
+    cardsFromOwner: [{ id: "base1-4", name: "Charizard", quantity: 2 }],
+    cardsFromGuest: [],
+  });
+  const stale = trade.buildTradeReconciliation(offer, "owner", collection, new Set());
+  assert.equal(stale.errors.length, 1);
+  assert.throws(() => trade.applyTradeReconciliation(stale, collection), /invalid-plan/);
+  const repeated = trade.buildTradeReconciliation(offer, "owner", collection, new Set(["trade-stale"]));
+  assert.equal(repeated.alreadyApplied, true);
+  assert.throws(() => trade.applyTradeReconciliation(repeated, collection), /invalid-plan/);
 });

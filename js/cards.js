@@ -594,13 +594,16 @@ async function hydrateOwnedCard(id) {
         series: card.series || full.set?.serie?.name || "Other series",
       })
     );
+    let collectionChanged = false;
     if (state.cardStates[id] === "owned" && !state.cardPrintVariants[id]) {
       state.cardPrintVariants[id] = selectedPrintVariant(full);
+      collectionChanged = true;
     }
     if (state.cardStates[id] === "owned" && !state.cardOwnedVariants[id]) {
       state.cardOwnedVariants[id] = [selectedPrintVariant(full)];
+      collectionChanged = true;
     }
-    saveUser();
+    if (collectionChanged) saveUser();
     renderCards();
     if (collectionDialog.open) {
       renderCollectionSummary();

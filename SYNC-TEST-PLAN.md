@@ -49,7 +49,14 @@ Before starting, prepare the external dump and pinned v54 fallback described in
    language and theme do not change.
 4. On A, add another card. Bring B to the foreground. Confirm B refreshes the
    collection without reloading the page.
-5. Export a normal collection backup from B and verify it still uses the
+5. Keep B's collection open. Remove that card on A and wait for A to report
+   that it is synchronized. Bring B to the foreground and confirm the card is
+   removed there. Return to A and confirm the card does not reappear.
+6. Repeat step 5 with the final card in a throwaway collection. An empty
+   collection must synchronize as a deliberate deletion, not as missing data.
+7. Change only the language or theme on B. Confirm this does not create a new
+   server revision or restore any removed card.
+8. Export a normal collection backup from B and verify it still uses the
    backwards-compatible version-6 backup contract and contains local settings.
 
 ## 4. Offline and conflict tests

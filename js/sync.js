@@ -159,6 +159,13 @@ function syncValuesEqual(left, right) {
   return syncComparable(left) === syncComparable(right);
 }
 
+function syncCollectionChanged(previousSnapshot, nextSnapshot) {
+  return !syncValuesEqual(
+    normalizeSyncSnapshot(previousSnapshot),
+    normalizeSyncSnapshot(nextSnapshot),
+  );
+}
+
 function applyRemoteSnapshot(snapshot) {
   const clean = normalizeSyncSnapshot(snapshot);
   syncApplyingRemote = true;

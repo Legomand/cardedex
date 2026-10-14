@@ -25,6 +25,8 @@ function applySettings() {
     }
   };
   setText('nav a[href="#about"]', "about");
+  setText("#mobileAbout", "about");
+  setText("#collectionNav", "collectionNav");
   setText(".eyebrow", "completeCompanion");
   document.querySelector(".eyebrow").insertAdjacentHTML(
     "afterbegin",
@@ -57,8 +59,16 @@ function applySettings() {
   setText("#collectionStorageKicker", "savedDevice");
   setText("#collectionTitle", "myCollection");
   setText(".collection-intro", "collectionPrivacy");
+  setLabel(".collection-tabs", "collectionTabsLabel");
   setText("#collectionOverviewKicker", "collectionOverview");
-  setText("#collectionOverviewTitle", "valuesAndBackup");
+  setText("#collectionOverviewTitle", "collectionValues");
+  setText("#collectionTabCards", "collectionCardsTab");
+  setText("#collectionTabValues", "collectionValuesTab");
+  setText("#collectionTabBackup", "backup");
+  setText("#collectionTabCompletion", "completionTab");
+  setText("#collectionTabFavorites", "collectionFavoritesTab");
+  setText("#backupKicker", "backupKicker");
+  setText("#backupTitle", "backupTitle");
   setText("#completionKicker", "completionKicker");
   setText("#completionTitle", "completionTitle");
   setText("#completionScope", "completionScope");
@@ -76,6 +86,11 @@ function applySettings() {
   );
   setText("#exportCollection", "exportBackup");
   setText("#importCollection", "importBackup");
+  setText("#collectionStringTitle", "collectionStringTitle");
+  setText("#collectionStringIntro", "collectionStringIntro");
+  setText("#copyCollectionString", "copyCollectionString");
+  setText("#restoreCollectionString", "restoreCollectionString");
+  document.querySelector("#collectionImportString").placeholder = t("collectionStringPlaceholder");
   if (typeof updateCollectionCurrencyControl === "function") {
     updateCollectionCurrencyControl();
   }
@@ -99,7 +114,6 @@ function applySettings() {
   setLabel("#lightboxClose", "closePreview");
   setLabel("#collectionClose", "closeCollection");
   if (typeof applyScannerLanguage === "function") applyScannerLanguage();
-  if (typeof applySyncLanguage === "function") applySyncLanguage();
   if (typeof applyTradeLanguage === "function") applyTradeLanguage();
   const pokedexOption = mainOrderFilter.querySelector('[value="pokedex"]');
   if (pokedexOption) pokedexOption.textContent = t("pokedexNumber");
@@ -114,6 +128,44 @@ function applySettings() {
   }
   updateMainOrderControl();
   renderCatalogView();
+}
+
+function applyPageView() {
+  const hash = location.hash || "#pokedex";
+  const tradeActive = hash === "#trade" || hash.startsWith("#trade/share/");
+  if (hash.startsWith("#trade/share/") && typeof consumeTradeShareHash === "function") {
+    consumeTradeShareHash();
+  }
+  document.querySelector("#trade").hidden = !tradeActive;
+  for (const selector of [".hero", ".catalog", ".about"]) {
+    document.querySelector(selector).hidden = tradeActive;
+  }
+  document.querySelectorAll("nav a").forEach((link) => {
+    link.classList.toggle("active", link.getAttribute("href") === hash ||
+      (tradeActive && link.getAttribute("href") === "#trade") ||
+      (hash === "#pokedex" && link.getAttribute("href") === "#pokedex"));
+  });
+  document.querySelector("#mobileAbout").classList.toggle("active", hash === "#about");
+  if (tradeActive && typeof openTradePage === "function") openTradePage();
+  if (hash === "#collection") {
+    if (!collectionDialog.open) showCollection();
+  } else if (collectionDialog.open) {
+    collectionDialog.close();
+  }
+  if (!tradeActive && ["#pokedex", "#about"].includes(hash)) {
+    requestAnimationFrame(() => document.querySelector(hash)?.scrollIntoView());
+  }
+}
+
+function activateCollectionTab(panelId, focus = false) {
+  const tabs = [...document.querySelectorAll(".collection-tabs [role='tab']")];
+  tabs.forEach((tab) => {
+    const active = tab.getAttribute("aria-controls") === panelId;
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+    tab.tabIndex = active ? 0 : -1;
+    document.querySelector(`#${tab.getAttribute("aria-controls")}`).hidden = !active;
+    if (active && focus) tab.focus();
+  });
 }
 function closeDrawer(updateHistory = true) {
   drawer.classList.remove("open");
@@ -192,6 +244,12 @@ catalogViewToggle.addEventListener("click", () => {
 catalogCardGrid.addEventListener("click", (event) => {
   const item = event.target.closest("[data-card-id]");
   if (!item) return;
+  const status = event.target.closest("[data-status]");
+  if (status) {
+    setCardStatus(item.dataset.cardId, status.dataset.status);
+    renderCatalogCards();
+    return;
+  }
   const card = catalogCardsForDisplay().find((value) =>
     value.id === item.dataset.cardId
   );
@@ -450,6 +508,28 @@ document.querySelector("#collectionClose").addEventListener(
   "click",
   () => collectionDialog.close(),
 );
+collectionDialog.addEventListener("close", () => {
+  if (location.hash !== "#collection") return;
+  history.replaceState(null, "", "#pokedex");
+  applyPageView();
+});
+document.querySelector(".collection-tabs").addEventListener("click", (event) => {
+  const tab = event.target.closest("[role='tab']");
+  if (tab) activateCollectionTab(tab.getAttribute("aria-controls"));
+});
+document.querySelector(".collection-tabs").addEventListener("keydown", (event) => {
+  const tabs = [...event.currentTarget.querySelectorAll("[role='tab']")];
+  const current = tabs.indexOf(event.target.closest("[role='tab']"));
+  if (current < 0) return;
+  let next = current;
+  if (event.key === "ArrowRight") next = (current + 1) % tabs.length;
+  else if (event.key === "ArrowLeft") next = (current - 1 + tabs.length) % tabs.length;
+  else if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = tabs.length - 1;
+  else return;
+  event.preventDefault();
+  activateCollectionTab(tabs[next].getAttribute("aria-controls"), true);
+});
 document.querySelector("#exportCollection").addEventListener(
   "click",
   exportCollection,
@@ -460,6 +540,13 @@ document.querySelector("#importCollection").addEventListener(
 );
 document.querySelector("#importFile").addEventListener("change", (e) => {
   if (e.target.files[0]) importCollection(e.target.files[0]);
+});
+document.querySelector("#copyCollectionString").addEventListener(
+  "click",
+  copyCollectionImportString,
+);
+document.querySelector("#restoreCollectionString").addEventListener("click", () => {
+  importCollectionString(document.querySelector("#collectionImportString").value);
 });
 document.querySelector("#collectionCurrency").addEventListener(
   "change",
@@ -590,8 +677,10 @@ window.addEventListener("popstate", () => {
   if (slug) openPokemon(slug, false);
   else closeDrawer(false);
 });
+window.addEventListener("hashchange", applyPageView);
 
 updateMainOrderControl();
+applyPageView();
 loadPokemon();
 if (state.settings.valuationCurrency === "dkk") {
   refreshCollectionExchangeRates().then((changed) => {
@@ -606,9 +695,16 @@ if (
   (location.protocol === "https:" || location.hostname === "localhost" ||
     location.hostname === "127.0.0.1")
 ) {
+  let reloadingForServiceWorker = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadingForServiceWorker) return;
+    reloadingForServiceWorker = true;
+    location.reload();
+  });
   window.addEventListener(
     "load",
-    () =>
-      navigator.serviceWorker.register("./service-worker.js").catch(() => {}),
+    () => navigator.serviceWorker.register("./service-worker.js")
+      .then((registration) => registration.update())
+      .catch(() => {}),
   );
 }

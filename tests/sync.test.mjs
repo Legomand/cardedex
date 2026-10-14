@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const syncSource = fs.readFileSync(path.join(root, "js/sync.js"), "utf8");
 const authSource = fs.readFileSync(path.join(root, "js/auth.js"), "utf8");
+const coreSource = fs.readFileSync(path.join(root, "js/core.js"), "utf8");
+const cardsSource = fs.readFileSync(path.join(root, "js/cards.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const collectionSource = fs.readFileSync(path.join(root, "js/collection.js"), "utf8");
 const accountSql = fs.readFileSync(
@@ -55,14 +57,15 @@ function loadSync(options = {}) {
       getItem: (key) => storage.get(key) ?? null,
       setItem: (key, value) => storage.set(key, String(value)),
     },
-    state: { settings: { language: "en" } },
+    state: options.state || { settings: { language: "en" } },
     document: {
       querySelector: () => null,
       addEventListener() {},
       createElement: () => ({ click() {} }),
       visibilityState: "visible",
     },
-    collectionDialog: null,
+    collectionDialog: options.collectionDialog || null,
+    showCollection: options.showCollection,
     escapeHtml: (value) => String(value),
     crypto: { randomUUID: () => "test-id" },
     addEventListener() {},
@@ -137,6 +140,11 @@ function loadCollectionBackup() {
     Map,
     Set,
     Promise,
+    TextDecoder,
+    TextEncoder,
+    Uint8Array,
+    atob,
+    btoa,
     encodeURIComponent,
     setTimeout(callback) { callback(); },
     URL: {
@@ -164,8 +172,18 @@ function loadCollectionBackup() {
     applySettings() { context.settingsApplied = true; },
     renderPokemon() { context.pokemonRendered = true; },
     alert() { context.alerted = true; },
+    escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      })[character]);
+    },
     t(value) { return value; },
   });
+  context.navigator = {
+    clipboard: {
+      async writeText(value) { context.copiedText = value; },
+    },
+  };
   vm.runInContext(collectionSource, context, { filename: "js/collection.js" });
   vm.runInContext("showCollection = () => { importRendered = true; }", context);
   return { context, anchor, exportedBlob: () => exportedBlob };
@@ -194,6 +212,114 @@ test("sync v7 removes orphaned card properties during normalization", () => {
   assert.deepEqual({ ...snapshot.cardCounts }, { owned: 1 });
   assert.deepEqual({ ...snapshot.cardPrintVariants }, {});
   assert.deepEqual({ ...snapshot.cardOwnedVariants }, {});
+});
+
+test("device-only settings do not create a collection change", () => {
+  const sync = loadSync();
+  const changed = evaluate(sync, `syncCollectionChanged(
+    {
+      settings: { language: "en", dark: false },
+      cardStates: { "base1-1": "owned" },
+      cardCounts: { "base1-1": 1 }
+    },
+    {
+      settings: { language: "da", dark: true },
+      cardStates: { "base1-1": "owned" },
+      cardCounts: { "base1-1": 1 }
+    }
+  )`);
+  assert.equal(changed, false);
+});
+
+test("removing a card, including the final card, is a collection change", () => {
+  const sync = loadSync();
+  const changed = evaluate(sync, `syncCollectionChanged(
+    {
+      cardStates: { "base1-1": "owned" },
+      cardCounts: { "base1-1": 1 }
+    },
+    { cardStates: {}, cardCounts: {} }
+  )`);
+  assert.equal(changed, true);
+});
+
+test("a remote deletion replaces the open PC collection without uploading stale data", async () => {
+  const storage = new Map();
+  const fakeDb = createFakeIndexedDb();
+  const original = {
+    version: 7,
+    favorites: [],
+    cardStates: { "base1-1": "owned" },
+    cardCounts: { "base1-1": 1 },
+    cardPrintVariants: {},
+    cardOwnedVariants: {},
+    trackedSeries: [],
+    trackedSets: [],
+    completionMode: "set",
+  };
+  storage.set("cardedex-sync-profile", JSON.stringify({
+    profileId: "pc-profile",
+    deviceId: "pc-device",
+    accountUserId: "account-a",
+    revision: 1,
+    serverRevision: 1,
+  }));
+  storage.set("cardedex-user", JSON.stringify({ ...original, version: 6 }));
+  fakeDb.stores.bases.set("account-a", {
+    accountUserId: "account-a",
+    revision: 1,
+    snapshot: original,
+  });
+  let collectionRenders = 0;
+  const state = {
+    settings: { language: "en" },
+    favorites: new Set(),
+    cardStates: { "base1-1": "owned" },
+    cardCounts: { "base1-1": 1 },
+    cardPrintVariants: {},
+    cardOwnedVariants: {},
+    trackedSeries: new Set(),
+    trackedSets: new Set(),
+    completionMode: "set",
+  };
+  const sync = loadSync({
+    storage,
+    indexedDB: fakeDb.indexedDB,
+    state,
+    collectionDialog: { open: true },
+    showCollection() { collectionRenders += 1; },
+  });
+  sync.cardedexAccount = {
+    client: {
+      from() {
+        return {
+          select() { return this; },
+          eq() { return this; },
+          async single() {
+            return {
+              data: {
+                id: "collection-a",
+                revision: 2,
+                snapshot: { ...original, cardStates: {}, cardCounts: {} },
+              },
+              error: null,
+            };
+          },
+        };
+      },
+    },
+  };
+
+  await evaluate(sync, `handleSyncAccountChange({ id: "account-a" })`);
+  assert.deepEqual({ ...state.cardStates }, {});
+  assert.deepEqual(JSON.parse(storage.get("cardedex-user")).cardStates, {});
+  assert.equal(fakeDb.stores.operations.size, 0);
+  assert.equal(collectionRenders, 1);
+});
+
+test("local saves do not queue backend synchronization", () => {
+  assert.doesNotMatch(coreSource, /queueCollectionSync|syncCollectionChanged/);
+  assert.match(cardsSource, /if \(collectionChanged\) saveUser\(\);/);
 });
 
 test("version-6 backup export and restore preserves collection fields and settings", async () => {
@@ -237,6 +363,96 @@ test("version-6 backup export and restore preserves collection fields and settin
   assert.equal(backup.context.pokemonRendered, true);
   assert.equal(backup.context.importRendered, true);
   assert.equal(backup.context.alerted, undefined);
+});
+
+test("CDXC1 collection strings round-trip the complete version-6 backup", async () => {
+  const backup = loadCollectionBackup();
+  const importString = backup.context.encodeCollectionImportString();
+
+  assert.match(importString, /^CDXC1\./);
+  assert.doesNotMatch(importString, /https?:\/\//);
+  const decoded = backup.context.decodeCollectionImportString(importString);
+  assert.equal(decoded.version, 6);
+  assert.equal(decoded.cardCounts["base1-1"], 3);
+  assert.deepEqual(
+    [...decoded.cardOwnedVariants["base1-1"]],
+    ["holo", "firstEdition"],
+  );
+  assert.equal(decoded.settings.language, "da");
+
+  backup.context.state.favorites = new Set();
+  backup.context.state.cardStates = {};
+  backup.context.state.cardCounts = {};
+  backup.context.state.cardPrintVariants = {};
+  backup.context.state.cardOwnedVariants = {};
+  backup.context.state.trackedSeries = new Set();
+  backup.context.state.trackedSets = new Set();
+  backup.context.state.completionMode = "set";
+  backup.context.state.settings = { language: "en", valuationCurrency: "market" };
+
+  assert.equal(backup.context.importCollectionString(importString), true);
+  assert.equal(backup.context.state.cardStates["base1-1"], "owned");
+  assert.equal(backup.context.state.cardCounts["base1-1"], 3);
+  assert.deepEqual(
+    [...backup.context.state.cardOwnedVariants["base1-1"]],
+    ["holo", "firstEdition"],
+  );
+  assert.deepEqual([...backup.context.state.trackedSeries], ["base"]);
+  assert.deepEqual([...backup.context.state.trackedSets], ["base1"]);
+  assert.equal(backup.context.state.completionMode, "master");
+  assert.equal(backup.context.state.settings.language, "da");
+  assert.equal(backup.context.alerted, undefined);
+
+  assert.equal(backup.context.importCollectionString("CDX1.not-a-collection"), false);
+  assert.equal(backup.context.alerted, true);
+});
+
+test("completion entries show set artwork and accessible owned-card progress", () => {
+  const backup = loadCollectionBackup();
+  backup.context.state.completionMode = "set";
+  const owned = new Map([["base1", { cards: 25, printings: 30 }]]);
+  const markup = backup.context.completionProgressItem("set", {
+    id: "base1",
+    name: "Base Set",
+    logo: "https://assets.tcgdex.net/en/base/base1/logo",
+    cardCount: { total: 100 },
+  }, owned);
+
+  assert.match(markup, /class="completion-artwork/);
+  assert.match(markup, /assets\.tcgdex\.net\/en\/base\/base1\/logo\.webp/);
+  assert.match(markup, /role="progressbar"/);
+  assert.match(markup, /aria-valuenow="25"/);
+  assert.match(markup, /style="width:25%"/);
+
+  backup.context.state.cardSets = [
+    { id: "base1", name: "Base Set", seriesId: "base", setOrder: 0, logo: "https://assets.tcgdex.net/en/base/base1/logo", cardCount: { total: 100 } },
+    { id: "base2", name: "Jungle", seriesId: "base", setOrder: 1, logo: "https://assets.tcgdex.net/en/base/base2/logo", cardCount: { total: 50 } },
+  ];
+  const seriesMarkup = backup.context.completionProgressItem(
+    "series",
+    { id: "base", name: "Base" },
+    owned,
+  );
+  assert.match(seriesMarkup, /completion-artwork-collage/);
+  assert.match(seriesMarkup, /base1\/logo\.webp/);
+  assert.match(seriesMarkup, /base2\/logo\.webp/);
+
+  assert.equal(
+    backup.context.completionAssetUrl("https://assets.tcgdex.net/en/base/base1/logo.png"),
+    "https://assets.tcgdex.net/en/base/base1/logo.png",
+  );
+  assert.equal(
+    backup.context.completionAssetUrl("https://assets.tcgdex.net/en/base/base1/logo?cache=1"),
+    "https://assets.tcgdex.net/en/base/base1/logo.webp?cache=1",
+  );
+
+  const unsafeMarkup = backup.context.completionProgressItem("set", {
+    id: "unsafe",
+    name: "Unsafe Set",
+    logo: "javascript:alert(1)",
+    cardCount: { total: 1 },
+  }, new Map());
+  assert.doesNotMatch(unsafeMarkup, /javascript:/);
 });
 
 test("offline operation journal survives a simulated browser restart", async () => {
@@ -369,14 +585,26 @@ test("permanent backend contract errors do not enter the network retry loop", ()
   assert.equal(evaluate(sync, `transientSyncError({message:"Failed to fetch"})`), true);
 });
 
-test("email flow creates new accounts and signs existing emails into the same identity", () => {
-  assert.match(authSource, /shouldCreateUser: true/);
-  assert.match(authSource, /verifyOtp/);
-  assert.doesNotMatch(authSource, /flowType: "pkce"/);
-  assert.doesNotMatch(authSource, /invite-collector|app_admins|accountInvite/);
-  assert.match(html, /Enter your email to create an account or sign in on this device/);
-  assert.match(html, /Continue with email/);
-  assert.doesNotMatch(html, /accountInvitePanel|Invite a collector/);
+test("browser runtime is disconnected from accounts and database synchronization", () => {
+  assert.doesNotMatch(html, /supabase(?:\.min)?\.js|js\/backend-config\.js|js\/auth\.js|js\/sync\.js/);
+  assert.doesNotMatch(html, /accountSignIn|accountCodeForm|syncChoice|Continue with email/);
+  assert.match(html, /id="tradeCollectorName"/);
+});
+
+test("local sharing previews remain phone-friendly and refresh the PWA shell", () => {
+  const styles = fs.readFileSync(path.join(root, "styles.css"), "utf8");
+  const serviceWorker = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
+  assert.match(styles, /\.trade-preview-columns \{ grid-template-columns:1fr;/);
+  assert.match(serviceWorker, /cardedex-shell-v76/);
+  assert.match(serviceWorker, /\.\/js\/qr\.js\?v=76/);
+  assert.doesNotMatch(serviceWorker, /backend-config|js\/auth|js\/sync/);
+  for (const asset of [
+    "styles.css", "js/core.js", "js/catalog.js", "js/cards.js",
+    "js/collection.js", "js/qr.js", "js/trade.js", "js/scanner.js", "app.js",
+  ]) {
+    assert.match(html, new RegExp(`${asset.replace(".", "\\.")}\\?v=76`));
+    assert.match(serviceWorker, new RegExp(`${asset.replace(".", "\\.")}\\?v=76`));
+  }
 });
 
 test("account bootstrap and synchronization backend contracts stay synchronized", () => {

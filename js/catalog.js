@@ -253,8 +253,9 @@ function renderCatalogCards() {
     loadMore.hidden = true;
     return;
   }
-  catalogCardGrid.innerHTML = cards.slice(0, state.catalogVisible).map((card) =>
-    `<article class="tcg-card catalog-tcg-card" data-card-id="${
+  catalogCardGrid.innerHTML = cards.slice(0, state.catalogVisible).map((card) => {
+    const status = state.cardStates[card.id] || "";
+    return `<article class="tcg-card catalog-tcg-card" data-card-id="${
       escapeHtml(card.id)
     }"><button class="tcg-open" type="button"><span class="tcg-image-wrap"><span class="variant-badge">#${
       escapeHtml(card.localId)
@@ -264,8 +265,12 @@ function renderCatalogCards() {
       escapeHtml(card.name)
     }</strong><span>${
       escapeHtml(card.set?.name || t("setLoading"))
-    } · #${escapeHtml(card.localId)}</span></button></article>`
-  ).join("");
+    } · #${escapeHtml(card.localId)}</span></button><span class="card-status catalog-card-status"><button type="button" data-status="owned" aria-pressed="${status === "owned"}" class="${
+      status === "owned" ? "active" : ""
+    }">✓ ${t("owned")}</button><button type="button" data-status="wanted" aria-pressed="${status === "wanted"}" class="${
+      status === "wanted" ? "active" : ""
+    }">♥ ${t("wanted")}</button></span></article>`;
+  }).join("");
   loadMore.hidden = state.catalogVisible >= cards.length;
 }
 

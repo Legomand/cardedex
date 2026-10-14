@@ -26,6 +26,10 @@ check is not treated as passed.
   and printings atomically.
 - Removing a card while another device changes its quantity cannot leave an
   orphaned quantity or printing.
+- A remote deletion replaces an open collection view without creating a stale
+  upload from that device, including when the deleted card was the final card.
+- Language, theme, and other device-only saves do not queue collection uploads.
+- Delayed card-detail loading does not save or upload an unchanged collection.
 - Permanent backend contract errors are not placed in the network retry loop.
 
 ### Authentication and signup
