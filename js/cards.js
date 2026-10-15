@@ -245,6 +245,10 @@ function tcgplayerCardImageUrl(card) {
   return "";
 }
 function archiveCardImageUrl(card) {
+  // These archive IDs can resolve to unrelated XY cards or the wrong kit number.
+  if (card.id?.startsWith("tk-xy-") && cardImageOverrides[card.id]) {
+    return cardImageOverrides[card.id];
+  }
   return card.id
     ? `https://img.illudex.com/${encodeURIComponent(card.id)}/high.webp`
     : "";

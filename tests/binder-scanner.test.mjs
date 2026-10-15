@@ -308,6 +308,35 @@ test("all 30th Classic Collection cards use the complete artwork source", () => 
   }
 });
 
+test("all eight XY Trainer Kits use numbered scans and never recover to unrelated archive cards", () => {
+  const overrides = vm.runInNewContext(`(${coreSource.match(/const cardImageOverrides = (\{[\s\S]*?\n\});/)[1]})`);
+  const context = vm.createContext({
+    cardImageOverrides: overrides,
+    isPocketCard() { return false; },
+    encodeURIComponent,
+  });
+  vm.runInContext(cardsSource, context, { filename: "js/cards.js" });
+  for (const [kit, code, count] of [
+    ["n", "TK6A", 12], ["sy", "TK6B", 12],
+    ["w", "TK7B", 15], ["b", "TK7A", 15],
+    ["latio", "TK8A", 16], ["latia", "TK8B", 16],
+    ["p", "TK9A", 18], ["su", "TK9B", 16],
+  ]) {
+    const entries = Object.entries(overrides).filter(([id]) => id.startsWith(`tk-xy-${kit}-`));
+    assert.equal(entries.length, count, `Incomplete ${kit} kit`);
+    for (const [id, url] of entries) {
+      const number = id.slice(id.lastIndexOf("-") + 1).padStart(3, "0");
+      assert.ok(url.startsWith(`https://pkmncards.com/wp-content/uploads/en_US-${code}-${number}-`));
+      for (const size of ["low", "high"]) {
+        const card = { id, localId: String(Number(number)), thirdParty: { tcgplayer: 123456 } };
+        assert.equal(context.cardImageUrl(card, size), url);
+        assert.equal(context.archiveCardImageUrl(card), url);
+        assert.ok(context.cardImageCandidates(card, size).every(candidate => !candidate.startsWith("https://img.illudex.com/")));
+      }
+    }
+  }
+});
+
 test("broken card artwork can recover from detailed marketplace metadata", () => {
   const context = vm.createContext({
     cardImageOverrides: {},
@@ -581,7 +610,7 @@ test("Trade Binder and local trade-offer contracts are present", () => {
   assert.match(tradeSource, /data-trade-more/);
   assert.match(tradeSource, /class="trade-card-grid"/);
   assert.match(tradeSource, /data-show-offer-qr/);
-  assert.match(html, /<script src="js\/qr\.js\?v=84"><\/script>\s*<script src="js\/trade\.js\?v=84"><\/script>/);
+  assert.match(html, /<script src="js\/qr\.js\?v=105"><\/script>\s*<script src="js\/trade\.js\?v=105"><\/script>/);
   assert.match(tradeSource, /CDX1\./);
   assert.match(tradeSource, /#trade\/share\//);
   assert.match(html, /<a href="#trade" id="tradeNav">/);
